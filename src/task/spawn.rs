@@ -48,14 +48,16 @@ static SCHEDULE: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
         .iter()
         .map(|worker| worker.stealer())
         .collect::<Vec<Stealer<Task>>>();
-    for worker in workers {
+    for (index, worker) in workers.into_iter().enumerate() {
         let injector = injector.clone();
         let stealers = stealers.clone();
-        thread::spawn(move || loop {
-            if let Some(task) = find_task(&worker, &injector, &stealers) {
-                task.run()
-            }
-        });
+        thread::Builder::new()
+            .name(format!("tio/async{}", index))
+            .spawn(move || loop {
+                if let Some(task) = find_task(&worker, &injector, &stealers) {
+                    task.run()
+                }
+            });
     }
     injector
 });

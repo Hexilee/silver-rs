@@ -1,5 +1,5 @@
 mod block;
-mod executor;
+mod spawn;
 
 pub use block::block_on;
-pub use executor::spawn;
+pub use spawn::spawn;
