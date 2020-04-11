@@ -1,6 +1,6 @@
 use async_task::waker_fn;
 use crossbeam_utils::sync::Parker;
-use pin_utils::pin_mut;
+use futures::pin_mut;
 use std::future::Future;
 use std::task::{Context, Poll, Waker};
 
