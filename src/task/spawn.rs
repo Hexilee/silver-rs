@@ -1,26 +1,11 @@
+use super::{JoinHandler, Task};
 use crossbeam_deque::{Injector, Stealer, Worker};
-use futures::task::{Context, Poll};
 use once_cell::sync::Lazy;
 use std::future::Future;
 use std::iter;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::thread;
-
-type Task = async_task::Task<()>;
-
-pub struct JoinHandler<T>(async_task::JoinHandle<T, ()>);
-
-impl<T> Future for JoinHandler<T> {
-    type Output = T;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match Pin::new(&mut self.0).poll(cx) {
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(opt) => Poll::Ready(opt.unwrap()),
-        }
-    }
-}
+use std::time::Duration;
 
 fn find_task<T>(local: &Worker<T>, global: &Injector<T>, stealers: &[Stealer<T>]) -> Option<T> {
     // Pop a task from the local queue, if not empty.
@@ -40,7 +25,9 @@ fn find_task<T>(local: &Worker<T>, global: &Injector<T>, stealers: &[Stealer<T>]
     })
 }
 
-static SCHEDULE: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
+const SLEEP_MS: u64 = 10;
+
+static POOL: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
     let injector = Arc::new(Injector::new());
     let nums = num_cpus::get();
     let workers = (0..nums).map(|_| Worker::new_fifo()).collect::<Vec<_>>();
@@ -56,8 +43,11 @@ static SCHEDULE: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
             .spawn(move || loop {
                 if let Some(task) = find_task(&worker, &injector, &stealers) {
                     task.run()
+                } else {
+                    thread::sleep(Duration::from_millis(SLEEP_MS))
                 }
-            });
+            })
+            .expect("fail to start thread");
     }
     injector
 });
@@ -67,7 +57,7 @@ where
     R: 'static + Send,
     F: 'static + Send + Future<Output = R>,
 {
-    let (task, handler) = async_task::spawn(fut, |f| SCHEDULE.push(f), ());
+    let (task, handler) = async_task::spawn(fut, |f| POOL.push(f), ());
     task.schedule();
     JoinHandler(handler)
 }
