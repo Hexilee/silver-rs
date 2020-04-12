@@ -3,6 +3,7 @@ mod blocking;
 mod spawn;
 
 pub use block::block_on;
+pub use blocking::spawn_blocking;
 pub use spawn::spawn;
 
 use futures::task::{Context, Poll};
@@ -11,9 +12,9 @@ use std::pin::Pin;
 
 type Task = async_task::Task<()>;
 
-pub struct JoinHandler<T>(async_task::JoinHandle<T, ()>);
+pub struct JoinHandle<T>(async_task::JoinHandle<T, ()>);
 
-impl<T> Future for JoinHandler<T> {
+impl<T> Future for JoinHandle<T> {
     type Output = T;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

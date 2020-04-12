@@ -1,4 +1,4 @@
-use super::{JoinHandler, Task};
+use super::{JoinHandle, Task};
 use crossbeam_deque::{Injector, Stealer, Worker};
 use once_cell::sync::Lazy;
 use std::future::Future;
@@ -25,7 +25,7 @@ fn find_task<T>(local: &Worker<T>, global: &Injector<T>, stealers: &[Stealer<T>]
     })
 }
 
-const SLEEP_MS: u64 = 10;
+const TIMEOUT: Duration = Duration::from_millis(10);
 
 static POOL: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
     let injector = Arc::new(Injector::new());
@@ -44,7 +44,7 @@ static POOL: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
                 if let Some(task) = find_task(&worker, &injector, &stealers) {
                     task.run()
                 } else {
-                    thread::sleep(Duration::from_millis(SLEEP_MS))
+                    thread::sleep(TIMEOUT)
                 }
             })
             .expect("fail to start thread");
@@ -52,12 +52,12 @@ static POOL: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
     injector
 });
 
-pub fn spawn<F, R>(fut: F) -> JoinHandler<R>
+pub fn spawn<F, R>(fut: F) -> JoinHandle<R>
 where
     R: 'static + Send,
     F: 'static + Send + Future<Output = R>,
 {
     let (task, handler) = async_task::spawn(fut, |f| POOL.push(f), ());
     task.schedule();
-    JoinHandler(handler)
+    JoinHandle(handler)
 }
