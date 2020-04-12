@@ -23,3 +23,4 @@ async-std = "1.5"
 name = "task"
 path = "benches/task.rs"
 harness = false
+

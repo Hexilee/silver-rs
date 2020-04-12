@@ -21,22 +21,22 @@ impl Future for Yields {
 }
 
 fn block_on(c: &mut Criterion) {
-    c.bench_function("tio on 0 yield", |b| {
+    c.bench_function("tio block on 0 yield", |b| {
         b.iter(|| tio::task::block_on(black_box(Yields(0))))
     });
-    c.bench_function("tio on 10 yield", |b| {
+    c.bench_function("tio block on 10 yield", |b| {
         b.iter(|| tio::task::block_on(black_box(Yields(10))))
     });
-    c.bench_function("tio on 50 yield", |b| {
+    c.bench_function("tio block on 50 yield", |b| {
         b.iter(|| tio::task::block_on(black_box(Yields(50))))
     });
-    c.bench_function("async-std on 0 yield", |b| {
+    c.bench_function("async-std block on 0 yield", |b| {
         b.iter(|| async_std::task::block_on(black_box(Yields(0))))
     });
-    c.bench_function("async-std on 10 yield", |b| {
+    c.bench_function("async-std block on 10 yield", |b| {
         b.iter(|| async_std::task::block_on(black_box(Yields(10))))
     });
-    c.bench_function("async-std on 50 yield", |b| {
+    c.bench_function("async-std block on 50 yield", |b| {
         b.iter(|| async_std::task::block_on(black_box(Yields(50))))
     });
 }
@@ -51,22 +51,22 @@ fn spawn(c: &mut Criterion) {
         join_all((0..TASKS).map(|_| async_std::task::spawn(black_box(Yields(yields)))))
     }
 
-    c.bench_function("tio on 0 yield", |b| {
+    c.bench_function("tio spawn 0 yield", |b| {
         b.iter(|| async_std::task::block_on(tio_tasks(0)))
     });
-    c.bench_function("tio on 10 yield", |b| {
+    c.bench_function("tio spawn 10 yield", |b| {
         b.iter(|| async_std::task::block_on(tio_tasks(10)))
     });
-    c.bench_function("tio on 50 yield", |b| {
+    c.bench_function("tio spawn 50 yield", |b| {
         b.iter(|| async_std::task::block_on(tio_tasks(50)))
     });
-    c.bench_function("async-std on 0 yield", |b| {
+    c.bench_function("async-std spawn 0 yield", |b| {
         b.iter(|| async_std::task::block_on(async_std_tasks(0)))
     });
-    c.bench_function("async-std on 10 yield", |b| {
+    c.bench_function("async-std spawn 10 yield", |b| {
         b.iter(|| async_std::task::block_on(async_std_tasks(10)))
     });
-    c.bench_function("async-std on 50 yield", |b| {
+    c.bench_function("async-std spawn 50 yield", |b| {
         b.iter(|| async_std::task::block_on(async_std_tasks(50)))
     });
 }
