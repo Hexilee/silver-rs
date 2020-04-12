@@ -22,7 +22,7 @@ impl<T> Future for JoinHandle<T> {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.0)
             .poll(cx)
-            .map(|opt| match opt.expect("") {
+            .map(|opt| match opt.expect("task cannot be canceled") {
                 Ok(ret) => ret,
                 Err(err) => resume_unwind(err),
             })

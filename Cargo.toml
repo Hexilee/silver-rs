@@ -17,6 +17,7 @@ crossbeam-channel = "0.4.2"
 
 [dev-dependencies]
 criterion = "0.3"
+async-std = "1.5"
 
 [[bench]]
 name = "task"
