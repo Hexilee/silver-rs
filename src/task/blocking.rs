@@ -1,6 +1,7 @@
 use super::{JoinHandle, Task};
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
@@ -84,13 +85,13 @@ fn start_thread(recv: Receiver<Task>) {
         .expect("cannot start a blocking thread");
 }
 
-pub fn spawn_blocking<F, R>(fut: F) -> JoinHandle<R>
+pub fn spawn_blocking<F, R>(f: F) -> JoinHandle<R>
 where
     R: 'static + Send,
     F: 'static + Send + FnOnce() -> R,
 {
     let (task, handler) = async_task::spawn(
-        async move { fut() },
+        async move { catch_unwind(AssertUnwindSafe(f)) },
         |t| POOL.send(t).expect("No blocking thread started"),
         (),
     );

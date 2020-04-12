@@ -1,8 +1,10 @@
 use super::{JoinHandle, Task};
 use crossbeam_deque::{Injector, Stealer, Worker};
+use futures::FutureExt;
 use once_cell::sync::Lazy;
 use std::future::Future;
 use std::iter;
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -57,7 +59,8 @@ where
     R: 'static + Send,
     F: 'static + Send + Future<Output = R>,
 {
-    let (task, handler) = async_task::spawn(fut, |f| POOL.push(f), ());
+    let (task, handler) =
+        async_task::spawn(AssertUnwindSafe(fut).catch_unwind(), |f| POOL.push(f), ());
     task.schedule();
     JoinHandle(handler)
 }
