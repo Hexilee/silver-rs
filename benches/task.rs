@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use futures::future::{join_all, JoinAll};
+#![feature(test)]
+extern crate test;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -20,56 +20,74 @@ impl Future for Yields {
     }
 }
 
-fn block_on(c: &mut Criterion) {
-    c.bench_function("tio block on 0 yield", |b| {
-        b.iter(|| tio::task::block_on(black_box(Yields(0))))
-    });
-    c.bench_function("tio block on 10 yield", |b| {
-        b.iter(|| tio::task::block_on(black_box(Yields(10))))
-    });
-    c.bench_function("tio block on 50 yield", |b| {
-        b.iter(|| tio::task::block_on(black_box(Yields(50))))
-    });
-    c.bench_function("async-std block on 0 yield", |b| {
-        b.iter(|| async_std::task::block_on(black_box(Yields(0))))
-    });
-    c.bench_function("async-std block on 10 yield", |b| {
-        b.iter(|| async_std::task::block_on(black_box(Yields(10))))
-    });
-    c.bench_function("async-std block on 50 yield", |b| {
-        b.iter(|| async_std::task::block_on(black_box(Yields(50))))
-    });
+mod block_on {
+    use super::Yields;
+    use test::Bencher;
+
+    #[bench]
+    fn tio_block_on_0_yield(b: &mut Bencher) {
+        b.iter(|| tio::task::block_on(Yields(0)))
+    }
+    #[bench]
+    fn tio_block_on_10_yield(b: &mut Bencher) {
+        b.iter(|| tio::task::block_on(Yields(10)))
+    }
+    #[bench]
+    fn tio_block_on_50_yield(b: &mut Bencher) {
+        b.iter(|| tio::task::block_on(Yields(50)))
+    }
+    #[bench]
+    fn async_std_block_on_0_yield(b: &mut Bencher) {
+        b.iter(|| tio::task::block_on(Yields(0)))
+    }
+    #[bench]
+    fn async_std_block_on_10_yield(b: &mut Bencher) {
+        b.iter(|| tio::task::block_on(Yields(10)))
+    }
+    #[bench]
+    fn async_std_block_on_50_yield(b: &mut Bencher) {
+        b.iter(|| tio::task::block_on(Yields(50)))
+    }
 }
 
-fn spawn(c: &mut Criterion) {
+mod spawn {
+    use super::Yields;
+    use async_std::task::block_on;
+    use futures::future::{join_all, JoinAll};
+    use test::Bencher;
+
     const TASKS: usize = 200;
     fn tio_tasks(yields: usize) -> JoinAll<tio::task::JoinHandle<()>> {
-        join_all((0..TASKS).map(|_| tio::task::spawn(black_box(Yields(yields)))))
+        join_all((0..TASKS).map(|_| tio::task::spawn(Yields(yields))))
     }
 
     fn async_std_tasks(yields: usize) -> JoinAll<async_std::task::JoinHandle<()>> {
-        join_all((0..TASKS).map(|_| async_std::task::spawn(black_box(Yields(yields)))))
+        join_all((0..TASKS).map(|_| async_std::task::spawn(Yields(yields))))
     }
 
-    c.bench_function("tio spawn 0 yield", |b| {
-        b.iter(|| async_std::task::block_on(tio_tasks(0)))
-    });
-    c.bench_function("tio spawn 10 yield", |b| {
-        b.iter(|| async_std::task::block_on(tio_tasks(10)))
-    });
-    c.bench_function("tio spawn 50 yield", |b| {
-        b.iter(|| async_std::task::block_on(tio_tasks(50)))
-    });
-    c.bench_function("async-std spawn 0 yield", |b| {
-        b.iter(|| async_std::task::block_on(async_std_tasks(0)))
-    });
-    c.bench_function("async-std spawn 10 yield", |b| {
-        b.iter(|| async_std::task::block_on(async_std_tasks(10)))
-    });
-    c.bench_function("async-std spawn 50 yield", |b| {
-        b.iter(|| async_std::task::block_on(async_std_tasks(50)))
-    });
-}
+    #[bench]
+    fn tio_spawn_0_yield(b: &mut Bencher) {
+        b.iter(|| block_on(tio_tasks(0)))
+    }
+    #[bench]
+    fn tio_spawn_10_yield(b: &mut Bencher) {
+        b.iter(|| block_on(tio_tasks(10)))
+    }
+    #[bench]
+    fn tio_spawn_50_yield(b: &mut Bencher) {
+        b.iter(|| block_on(tio_tasks(50)))
+    }
 
-criterion_group!(benches, block_on, spawn);
-criterion_main!(benches);
+    #[bench]
+    fn async_std_spawn_0_yield(b: &mut Bencher) {
+        b.iter(|| block_on(async_std_tasks(0)))
+    }
+    #[bench]
+    fn async_std_spawn_10_yield(b: &mut Bencher) {
+        b.iter(|| block_on(async_std_tasks(10)))
+    }
+    #[bench]
+    fn async_std_spawn_50_yield(b: &mut Bencher) {
+        b.iter(|| block_on(async_std_tasks(50)))
+    }
+}
