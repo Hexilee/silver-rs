@@ -15,8 +15,8 @@ crossbeam-queue = "0.2.1"
 futures = "0.3.4"
 once_cell = "1.3.1"
 num_cpus = "1.12.0"
-mio = { version = "0.7.0", features = ["os-poll"] }
-slab = "0.4.2"
+mio = { version = "0.7.0", features = ["os-poll"], optional = true }
+slab = { version = "0.4.2", optional = true }
 
 [dev-dependencies]
 async-std = { version = "1.5", features = ["unstable"] }
@@ -28,4 +28,11 @@ required-features = ["nightly"]
 
 [features]
 nightly = []
+full = ["net"]
+net = ["tcp", "udp", "uds"]
+tcp = ["mio/tcp", "mio-net"]
+udp = ["mio/udp", "mio-net"]
+uds = ["mio/uds", "mio-net"]
+mio-net = ["mio", "slab"]
+
 

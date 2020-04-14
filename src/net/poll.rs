@@ -57,12 +57,12 @@ struct Reactor {
     wakers: Arc<RwLock<Slab<Wakers>>>,
 }
 
-struct Watcher<S>
+pub struct Watcher<S>
 where
     S: event::Source,
 {
-    index: usize,
-    source: S,
+    pub(crate) index: usize,
+    pub(crate) source: S,
 }
 
 struct Wakers {
