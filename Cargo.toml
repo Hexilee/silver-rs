@@ -1,9 +1,22 @@
 [package]
 name = "tio"
 version = "0.1.0"
-authors = ["Hexilee <hexileee@gmail.com>"]
+authors = ["Hexilee <i@hexilee.me>"]
 edition = "2018"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Hexilee/titan-io"
+documentation = "https://docs.rs/tio"
+homepage = "https://github.com/Hexilee/titan-io"
+description = """
+Yet another solution for asynchronous io.
+"""
+keywords = ["async", "await", "future", "std", "task"]
+categories = ["asynchronous", "concurrency", "network-programming"]
 
+[package.metadata.docs.rs]
+features = ["docs"]
+rustdoc-args = ["--cfg", "feature=\"docs\""]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -28,6 +41,7 @@ required-features = ["nightly"]
 
 [features]
 nightly = []
+docs = ["full"]
 full = ["net"]
 net = ["tcp", "udp", "uds"]
 tcp = ["mio/tcp", "mio-net"]
