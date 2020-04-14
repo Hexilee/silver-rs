@@ -61,14 +61,6 @@ struct Watcher<S>
 where
     S: event::Source,
 {
-    is_watching: bool,
-    source: Arc<Source<S>>,
-}
-
-struct Source<S>
-where
-    S: event::Source,
-{
     index: usize,
     source: S,
 }
@@ -91,30 +83,6 @@ impl<S> Watcher<S>
 where
     S: event::Source,
 {
-    fn new(source: Source<S>) -> Self {
-        Self {
-            is_watching: false,
-            source: Arc::new(source),
-        }
-    }
-}
-
-impl<S> Clone for Watcher<S>
-where
-    S: event::Source,
-{
-    fn clone(&self) -> Self {
-        Self {
-            is_watching: false,
-            source: self.source.clone(),
-        }
-    }
-}
-
-impl<S> Source<S>
-where
-    S: event::Source,
-{
     fn new(mut source: S) -> io::Result<Self> {
         let index = REACTOR
             .wakers
@@ -128,7 +96,7 @@ where
     }
 }
 
-impl<S> Drop for Source<S>
+impl<S> Drop for Watcher<S>
 where
     S: event::Source,
 {
@@ -143,4 +111,10 @@ where
             .expect("entry lock poisoned")
             .remove(self.index);
     }
+}
+
+trait Watch<S>
+where
+    S: event::Source,
+{
 }
