@@ -91,3 +91,30 @@ mod spawn {
         b.iter(|| block_on(async_std_tasks(50)))
     }
 }
+
+mod spawn_blocking {
+    use async_std::task::block_on;
+    use futures::future::join_all;
+    use std::fs::read;
+    use test::Bencher;
+
+    const TASKS: usize = 200;
+    const FILE_PATH: &str = "Cargo.toml";
+
+    #[bench]
+    fn tio_spawn_blocking(b: &mut Bencher) {
+        let tasks =
+            || join_all((0..TASKS).map(|_| tio::task::spawn_blocking(|| read(FILE_PATH).unwrap())));
+        b.iter(|| block_on(tasks()))
+    }
+
+    #[bench]
+    fn async_std_spawn_blocking(b: &mut Bencher) {
+        let tasks = || {
+            join_all(
+                (0..TASKS).map(|_| async_std::task::spawn_blocking(|| read(FILE_PATH).unwrap())),
+            )
+        };
+        b.iter(|| block_on(tasks()))
+    }
+}
