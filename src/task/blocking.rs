@@ -15,71 +15,42 @@ static POOL: Lazy<Sender<Task>> = Lazy::new(|| {
     sender
 });
 
-enum GuardType {
-    Free,
-    Busy,
-}
-
-struct ThreadGuard {
-    free_threads: usize,
-    typ: GuardType,
-}
-
-use GuardType::*;
-
-impl ThreadGuard {
-    fn busy() -> Self {
-        Self {
-            free_threads: FREE_THREADS.fetch_sub(1, Ordering::SeqCst),
-            typ: Busy,
-        }
-    }
-
-    fn free() -> Self {
-        Self {
-            free_threads: FREE_THREADS.fetch_add(1, Ordering::SeqCst),
-            typ: Free,
-        }
-    }
-}
-
-impl Drop for ThreadGuard {
-    fn drop(&mut self) {
-        match self.typ {
-            Busy => FREE_THREADS.fetch_add(1, Ordering::SeqCst),
-            Free => FREE_THREADS.fetch_sub(1, Ordering::SeqCst),
-        };
-    }
-}
-
 fn start_thread(recv: Receiver<Task>) {
-    let _ = ThreadGuard::free();
     thread::Builder::new()
         .name("tio/blocking".to_string())
-        .spawn(move || loop {
-            let result = recv.recv_timeout(TIMEOUT);
-            let guard = ThreadGuard::busy();
-            let mut task = match result {
-                Ok(task) => task,
-                Err(_) => {
-                    if guard.free_threads == 1 {
-                        continue;
-                    }
-                    // stop thread
-                    return;
-                }
-            };
-
-            if guard.free_threads == 1 {
-                start_thread(recv.clone())
-            }
-
+        .spawn(move || {
+            FREE_THREADS.fetch_add(1, Ordering::SeqCst);
             loop {
-                task.run();
-                task = match recv.try_recv() {
-                    Ok(t) => t,
-                    Err(_) => break,
+                let result = recv.recv_timeout(TIMEOUT);
+                let mut task = match result {
+                    Ok(task) => task,
+                    Err(_) => {
+                        if FREE_THREADS.fetch_sub(1, Ordering::SeqCst) == 1 {
+                            FREE_THREADS.fetch_add(1, Ordering::SeqCst);
+                            continue;
+                        }
+                        // stop thread
+                        break;
+                    }
+                };
+
+                if FREE_THREADS.fetch_sub(1, Ordering::SeqCst) == 1 {
+                    start_thread(recv.clone())
                 }
+
+                loop {
+                    task.run();
+                    task = match recv.try_recv() {
+                        Ok(t) => t,
+                        Err(_) => break,
+                    }
+                }
+
+                if FREE_THREADS.load(Ordering::SeqCst) > 0 {
+                    break;
+                }
+
+                FREE_THREADS.fetch_add(1, Ordering::SeqCst);
             }
         })
         .expect("cannot start a blocking thread");
