@@ -3,11 +3,25 @@ use futures::task::{Context, Poll};
 use futures::{AsyncRead, AsyncWrite};
 use mio::net;
 use std::io::{self, IoSlice, IoSliceMut, Read, Write};
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct TcpStream(Arc<Watcher<net::TcpStream>>);
+
+impl TcpStream {
+    pub async fn connect(addr: SocketAddr) -> io::Result<Self> {
+        let watcher = Watcher::with(net::TcpStream::connect(addr)?)?;
+        let inner = Arc::new(watcher);
+        futures::future::poll_fn(|cx| inner.poll_write_with(cx, |mut o| o.write(b"".as_ref())))
+            .await?;
+        match inner.take_error() {
+            Ok(None) => Ok(Self(inner)),
+            Ok(Some(err)) | Err(err) => Err(err),
+        }
+    }
+}
 
 impl AsyncRead for TcpStream {
     fn poll_read(

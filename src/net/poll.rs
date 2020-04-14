@@ -98,7 +98,7 @@ impl<S> Watcher<S>
 where
     S: event::Source,
 {
-    fn new(mut source: S) -> io::Result<Self> {
+    pub fn with(mut source: S) -> io::Result<Self> {
         let index = REACTOR
             .wakers
             .write()
