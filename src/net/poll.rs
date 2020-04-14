@@ -112,9 +112,3 @@ where
             .remove(self.index);
     }
 }
-
-trait Watch<S>
-where
-    S: event::Source,
-{
-}
