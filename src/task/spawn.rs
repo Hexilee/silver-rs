@@ -27,7 +27,7 @@ fn find_task<T>(local: &Worker<T>, global: &Injector<T>, stealers: &[Stealer<T>]
     })
 }
 
-const TIMEOUT: Duration = Duration::from_millis(10);
+const TIMEOUT: Duration = Duration::from_micros(80);
 
 static POOL: Lazy<Arc<Injector<Task>>> = Lazy::new(|| {
     let injector = Arc::new(Injector::new());
