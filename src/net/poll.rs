@@ -1,3 +1,4 @@
+use crossbeam_queue::SegQueue;
 use mio::event;
 use mio::{Events, Interest, Poll, Registry, Token};
 use once_cell::sync::Lazy;
@@ -5,27 +6,12 @@ use slab::Slab;
 use std::io;
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::task::Waker;
 use std::thread;
 
 const EVENTS: usize = 1 << 12;
 const THREAD_NAME: &str = "tio/poll";
-const ALL_INTEREST: Interest = {
-    let mut interest = Interest::READABLE.add(Interest::WRITABLE);
-    #[cfg(any(
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "ios",
-        target_os = "macos"
-    ))]
-    {
-        interest = interest.add(Interest::AIO)
-    }
-    #[cfg(target_os = "freebsd")]
-    {
-        interest = interest.add(Interest::LIO)
-    }
-    interest
-};
+const ALL_INTEREST: Interest = Interest::READABLE.add(Interest::WRITABLE);
 
 static REACTOR: Lazy<Reactor> = Lazy::new(|| {
     let mut poll = match Poll::new() {
@@ -36,6 +22,8 @@ static REACTOR: Lazy<Reactor> = Lazy::new(|| {
         Ok(r) => r,
         Err(err) => panic!("fail to clone mio::Registry: {}", err),
     };
+    let wakers = Arc::new(RwLock::new(Slab::<Wakers>::new()));
+    let wakers_cloned = wakers.clone();
     thread::Builder::new()
         .name(THREAD_NAME.to_string())
         .spawn(move || {
@@ -44,18 +32,29 @@ static REACTOR: Lazy<Reactor> = Lazy::new(|| {
                 if let Err(err) = poll.poll(&mut events, None) {
                     panic!("poll error: {}", err)
                 }
+                let wakers = wakers_cloned.read().expect("entry lock poisoned");
+                for event in events.iter() {
+                    let token = event.token();
+                    if event.is_readable() {
+                        while let Ok(waker) = wakers[token.0].reader.pop() {
+                            waker.wake()
+                        }
+                    }
+                    if event.is_writable() {
+                        while let Ok(waker) = wakers[token.0].writer.pop() {
+                            waker.wake()
+                        }
+                    }
+                }
             }
         })
         .expect(&format!("fail to spawn thread {}", THREAD_NAME));
-    Reactor {
-        registry,
-        entries: RwLock::new(Slab::new()),
-    }
+    Reactor { registry, wakers }
 });
 
 struct Reactor {
     registry: Registry,
-    entries: RwLock<Slab<Entry>>,
+    wakers: Arc<RwLock<Slab<Wakers>>>,
 }
 
 struct Watcher<S>
@@ -74,11 +73,17 @@ where
     source: S,
 }
 
-struct Entry {}
+struct Wakers {
+    reader: SegQueue<Waker>,
+    writer: SegQueue<Waker>,
+}
 
-impl Entry {
+impl Wakers {
     fn new() -> Self {
-        Entry {}
+        Wakers {
+            reader: SegQueue::new(),
+            writer: SegQueue::new(),
+        }
     }
 }
 
@@ -112,10 +117,10 @@ where
 {
     fn new(mut source: S) -> io::Result<Self> {
         let index = REACTOR
-            .entries
+            .wakers
             .write()
             .expect("entry lock poisoned")
-            .insert(Entry::new());
+            .insert(Wakers::new());
         REACTOR
             .registry
             .register(&mut source, Token(index), ALL_INTEREST)?;
@@ -133,7 +138,7 @@ where
             .deregister(&mut self.source)
             .expect("fail to deregister source");
         REACTOR
-            .entries
+            .wakers
             .write()
             .expect("entry lock poisoned")
             .remove(self.index);
