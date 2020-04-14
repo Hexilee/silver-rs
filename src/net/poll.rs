@@ -4,6 +4,7 @@ use mio::{Events, Interest, Poll, Registry, Token};
 use once_cell::sync::Lazy;
 use slab::Slab;
 use std::io;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::task::Waker;
@@ -13,7 +14,7 @@ const EVENTS: usize = 1 << 12;
 const THREAD_NAME: &str = "tio/poll";
 const ALL_INTEREST: Interest = Interest::READABLE.add(Interest::WRITABLE);
 
-static REACTOR: Lazy<Reactor> = Lazy::new(|| {
+pub static REACTOR: Lazy<Reactor> = Lazy::new(|| {
     let mut poll = match Poll::new() {
         Ok(p) => p,
         Err(err) => panic!("fail to construct a mio::Poll: {}", err),
@@ -52,16 +53,28 @@ static REACTOR: Lazy<Reactor> = Lazy::new(|| {
     Reactor { registry, wakers }
 });
 
-struct Reactor {
+pub struct Reactor {
     registry: Registry,
     wakers: Arc<RwLock<Slab<Wakers>>>,
+}
+
+impl Reactor {
+    pub fn read(&self, token: Token, waker: Waker) {
+        let wakers = self.wakers.read().expect("entry lock poisoned");
+        wakers[token.0].reader.push(waker);
+    }
+
+    pub fn write(&self, token: Token, waker: Waker) {
+        let wakers = self.wakers.read().expect("entry lock poisoned");
+        wakers[token.0].writer.push(waker);
+    }
 }
 
 pub struct Watcher<S>
 where
     S: event::Source,
 {
-    pub(crate) index: usize,
+    pub(crate) token: Token,
     pub(crate) source: S,
 }
 
@@ -89,10 +102,11 @@ where
             .write()
             .expect("entry lock poisoned")
             .insert(Wakers::new());
+        let token = Token(index);
         REACTOR
             .registry
-            .register(&mut source, Token(index), ALL_INTEREST)?;
-        Ok(Self { index, source })
+            .register(&mut source, token, ALL_INTEREST)?;
+        Ok(Self { token, source })
     }
 }
 
@@ -109,6 +123,17 @@ where
             .wakers
             .write()
             .expect("entry lock poisoned")
-            .remove(self.index);
+            .remove(self.token.0);
+    }
+}
+
+impl<S> Deref for Watcher<S>
+where
+    S: event::Source,
+{
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        &self.source
     }
 }
