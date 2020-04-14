@@ -1,3 +1,4 @@
+use super::util::may_block;
 use crossbeam_queue::SegQueue;
 use mio::event;
 use mio::{Events, Interest, Poll, Registry, Token};
@@ -8,13 +9,14 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::task::Waker;
+use std::task::{self, Context};
 use std::thread;
 
 const EVENTS: usize = 1 << 12;
 const THREAD_NAME: &str = "tio/poll";
 const ALL_INTEREST: Interest = Interest::READABLE.add(Interest::WRITABLE);
 
-pub static REACTOR: Lazy<Reactor> = Lazy::new(|| {
+static REACTOR: Lazy<Reactor> = Lazy::new(|| {
     let mut poll = match Poll::new() {
         Ok(p) => p,
         Err(err) => panic!("fail to construct a mio::Poll: {}", err),
@@ -53,18 +55,18 @@ pub static REACTOR: Lazy<Reactor> = Lazy::new(|| {
     Reactor { registry, wakers }
 });
 
-pub struct Reactor {
+struct Reactor {
     registry: Registry,
     wakers: Arc<RwLock<Slab<Wakers>>>,
 }
 
 impl Reactor {
-    pub fn read(&self, token: Token, waker: Waker) {
+    fn read(&self, token: Token, waker: Waker) {
         let wakers = self.wakers.read().expect("entry lock poisoned");
         wakers[token.0].reader.push(waker);
     }
 
-    pub fn write(&self, token: Token, waker: Waker) {
+    fn write(&self, token: Token, waker: Waker) {
         let wakers = self.wakers.read().expect("entry lock poisoned");
         wakers[token.0].writer.push(waker);
     }
@@ -107,6 +109,30 @@ where
             .registry
             .register(&mut source, token, ALL_INTEREST)?;
         Ok(Self { token, source })
+    }
+
+    pub fn poll_read_with<'a, F, R>(
+        &'a self,
+        cx: &mut Context<'_>,
+        mut f: F,
+    ) -> task::Poll<io::Result<R>>
+    where
+        F: FnMut(&'a S) -> io::Result<R>,
+    {
+        REACTOR.read(self.token, cx.waker().clone());
+        may_block(f(&self.source))
+    }
+
+    pub fn poll_write_with<'a, F, R>(
+        &'a self,
+        cx: &mut Context<'_>,
+        mut f: F,
+    ) -> task::Poll<io::Result<R>>
+    where
+        F: FnMut(&'a S) -> io::Result<R>,
+    {
+        REACTOR.write(self.token, cx.waker().clone());
+        may_block(f(&self.source))
     }
 }
 

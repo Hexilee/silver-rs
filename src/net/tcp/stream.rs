@@ -1,5 +1,4 @@
-use crate::net::poll::{Watcher, REACTOR};
-use crate::net::util::may_block;
+use crate::net::poll::Watcher;
 use futures::task::{Context, Poll};
 use futures::{AsyncRead, AsyncWrite};
 use mio::net;
@@ -16,9 +15,7 @@ impl AsyncRead for TcpStream {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
-        let watcher = &*self.0;
-        REACTOR.read(watcher.token, cx.waker().clone());
-        may_block((&mut &watcher.source).read(buf))
+        self.0.poll_read_with(cx, |mut i| i.read(buf))
     }
 
     fn poll_read_vectored(
@@ -26,9 +23,7 @@ impl AsyncRead for TcpStream {
         cx: &mut Context<'_>,
         bufs: &mut [IoSliceMut<'_>],
     ) -> Poll<io::Result<usize>> {
-        let watcher = &*self.0;
-        REACTOR.read(watcher.token, cx.waker().clone());
-        may_block((&mut &watcher.source).read_vectored(bufs))
+        self.0.poll_read_with(cx, |mut i| i.read_vectored(bufs))
     }
 }
 
@@ -38,9 +33,7 @@ impl AsyncWrite for TcpStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        let watcher = &*self.0;
-        REACTOR.write(watcher.token, cx.waker().clone());
-        may_block((&mut &watcher.source).write(buf))
+        self.0.poll_write_with(cx, |mut o| o.write(buf))
     }
 
     fn poll_write_vectored(
@@ -48,19 +41,15 @@ impl AsyncWrite for TcpStream {
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        let watcher = &*self.0;
-        REACTOR.write(watcher.token, cx.waker().clone());
-        may_block((&mut &watcher.source).write_vectored(bufs))
+        self.0.poll_write_with(cx, |mut o| o.write_vectored(bufs))
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let watcher = &*self.0;
-        REACTOR.write(watcher.token, cx.waker().clone());
-        may_block((&mut &watcher.source).flush())
+        self.0.poll_write_with(cx, |mut o| o.flush())
     }
 
     fn poll_close(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.0.shutdown(std::net::Shutdown::Write)?;
+        self.0.shutdown(std::net::Shutdown::Both)?;
         Poll::Ready(Ok(()))
     }
 }
