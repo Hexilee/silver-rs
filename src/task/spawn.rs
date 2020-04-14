@@ -55,6 +55,7 @@ static POOL: Lazy<Arc<Pool>> = Lazy::new(|| {
     pool
 });
 
+#[inline]
 fn find_task<T>(local: &Worker<T>, global: &Injector<T>, stealers: &[Stealer<T>]) -> Option<T> {
     // Pop a task from the local queue, if not empty.
     local.pop().or_else(|| {
@@ -73,6 +74,7 @@ fn find_task<T>(local: &Worker<T>, global: &Injector<T>, stealers: &[Stealer<T>]
     })
 }
 
+#[inline]
 fn schedule(t: Task) {
     POOL.injector.push(t);
     if let Ok(unparker) = POOL.unparkers.pop() {
@@ -89,4 +91,15 @@ where
     let (task, handler) = async_task::spawn(fut, schedule, ());
     task.schedule();
     JoinHandle(handler)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::spawn;
+    use crate::task::block_on;
+
+    #[test]
+    fn basic() {
+        assert_eq!(1, block_on(spawn(async { 1 })));
+    }
 }
