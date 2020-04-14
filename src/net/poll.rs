@@ -4,6 +4,7 @@ use mio::event;
 use mio::{Events, Interest, Poll, Registry, Token};
 use once_cell::sync::Lazy;
 use slab::Slab;
+use std::fmt::{self, Debug, Formatter};
 use std::io;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -158,8 +159,19 @@ where
     S: event::Source,
 {
     type Target = S;
-
     fn deref(&self) -> &Self::Target {
         &self.source
+    }
+}
+
+impl<S> Debug for Watcher<S>
+where
+    S: event::Source + Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Watcher")
+            .field("token", &self.token)
+            .field("source", &self.source)
+            .finish()
     }
 }

@@ -8,7 +8,43 @@ use std::net::{SocketAddr, TcpStream as StdStream, ToSocketAddrs};
 use std::pin::Pin;
 use std::sync::Arc;
 
-#[derive(Clone)]
+/// A TCP stream between a local and a remote socket.
+///
+/// A `TcpStream` can either be created by connecting to an endpoint, via the [`connect`] method,
+/// or by [accepting] a connection from a [listener].  It can be read or written to using the
+/// [`AsyncRead`], [`AsyncWrite`], and related extension traits in [`futures::io`].
+///
+/// The connection will be closed when the value is dropped. The reading and writing portions of
+/// the connection can also be shut down individually with the [`shutdown`] method.
+///
+/// This type is an async version of [`std::net::TcpStream`].
+///
+/// [`connect`]: struct.TcpStream.html#method.connect
+/// [accepting]: struct.TcpListener.html#method.accept
+/// [listener]: struct.TcpListener.html
+/// [`AsyncRead`]: https://docs.rs/futures/0.3/futures/io/trait.AsyncRead.html
+/// [`AsyncWrite`]: https://docs.rs/futures/0.3/futures/io/trait.AsyncWrite.html
+/// [`futures::io`]: https://docs.rs/futures/0.3/futures/io/index.html
+/// [`shutdown`]: struct.TcpStream.html#method.shutdown
+/// [`std::net::TcpStream`]: https://doc.rust-lang.org/std/net/struct.TcpStream.html
+///
+/// ## Examples
+///
+/// ```no_run
+/// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
+/// #
+/// use tio::net::TcpStream;
+/// use futures::io::{AsyncWriteExt, AsyncReadExt};
+///
+/// let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
+/// stream.write_all(b"hello world").await?;
+///
+/// let mut buf = vec![0u8; 1024];
+/// let n = stream.read(&mut buf).await?;
+/// #
+/// # Ok(()) }) }
+/// ```
+#[derive(Debug, Clone)]
 pub struct TcpStream(Arc<Watcher<net::TcpStream>>);
 
 impl TcpStream {
