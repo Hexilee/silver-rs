@@ -1,5 +1,6 @@
 use super::TcpStream;
 use crate::net::poll::Watcher;
+use crate::net::util::resolve_none;
 use futures::task::{Context, Poll};
 use futures::{future, Stream};
 use mio::net;
@@ -90,12 +91,7 @@ impl TcpListener {
             }
         }
 
-        Err(error.unwrap_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "could not resolve to any addresses",
-            )
-        }))
+        Err(error.unwrap_or_else(resolve_none))
     }
 
     /// Accepts a new incoming connection to this listener.

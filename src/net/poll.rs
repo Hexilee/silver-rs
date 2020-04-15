@@ -1,4 +1,4 @@
-use super::util::may_block;
+use super::util::{may_block, WAKERS_LOCK_POISONED};
 use crossbeam_queue::SegQueue;
 use mio::event;
 use mio::{Events, Interest, Poll, Registry, Token};
@@ -36,7 +36,7 @@ static REACTOR: Lazy<Reactor> = Lazy::new(|| {
                 if let Err(err) = poll.poll(&mut events, None) {
                     panic!("poll error: {}", err)
                 }
-                let wakers = wakers_cloned.read().expect("entry lock poisoned");
+                let wakers = wakers_cloned.read().expect(WAKERS_LOCK_POISONED);
                 for event in events.iter() {
                     let token = event.token();
                     if event.is_readable() {
@@ -63,12 +63,12 @@ struct Reactor {
 
 impl Reactor {
     fn read(&self, token: Token, waker: Waker) {
-        let wakers = self.wakers.read().expect("entry lock poisoned");
+        let wakers = self.wakers.read().expect(WAKERS_LOCK_POISONED);
         wakers[token.0].reader.push(waker);
     }
 
     fn write(&self, token: Token, waker: Waker) {
-        let wakers = self.wakers.read().expect("entry lock poisoned");
+        let wakers = self.wakers.read().expect(WAKERS_LOCK_POISONED);
         wakers[token.0].writer.push(waker);
     }
 }
@@ -103,7 +103,7 @@ where
         let index = REACTOR
             .wakers
             .write()
-            .expect("entry lock poisoned")
+            .expect(WAKERS_LOCK_POISONED)
             .insert(Wakers::new());
         let token = Token(index);
         REACTOR
@@ -150,7 +150,7 @@ where
         REACTOR
             .wakers
             .write()
-            .expect("entry lock poisoned")
+            .expect(WAKERS_LOCK_POISONED)
             .remove(self.token.0);
     }
 }

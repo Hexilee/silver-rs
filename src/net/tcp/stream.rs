@@ -1,4 +1,5 @@
 use crate::net::poll::Watcher;
+use crate::net::util::resolve_none;
 use futures::task::{Context, Poll};
 use futures::{future, AsyncRead, AsyncWrite};
 use mio::net;
@@ -81,7 +82,7 @@ impl TcpStream {
     /// This method may be blocked by resolving.
     /// You can resolve addrs asynchronously by [`Resolver`].
     ///
-    /// [`Resolver`]: trait.Resolver.html
+    /// [`Resolver`]: ../trait.Resolver.html
     /// ```no_run
     /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
     /// #
@@ -102,12 +103,7 @@ impl TcpStream {
                 ok => return ok,
             }
         }
-        Err(error.unwrap_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "could not resolve to any addresses",
-            )
-        }))
+        Err(error.unwrap_or_else(resolve_none))
     }
     /// Returns the local address that this stream is connected to.
     ///

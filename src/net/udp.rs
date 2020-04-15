@@ -1,4 +1,5 @@
 use crate::net::poll::Watcher;
+use crate::net::util::resolve_none;
 use futures::future;
 use mio::net;
 use std::io;
@@ -82,12 +83,7 @@ impl UdpSocket {
             }
         }
 
-        Err(error.unwrap_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "could not resolve to any addresses",
-            )
-        }))
+        Err(error.unwrap_or_else(resolve_none))
     }
 
     /// Returns the local address that this listener is bound to.
@@ -141,10 +137,7 @@ impl UdpSocket {
         let addr = match addrs.to_socket_addrs()?.next() {
             Some(addr) => addr,
             None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "no addresses to send data to",
-                ));
+                return Err(resolve_none());
             }
         };
 
@@ -204,13 +197,7 @@ impl UdpSocket {
                 ok => return ok,
             }
         }
-
-        Err(error.unwrap_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "could not resolve to any addresses",
-            )
-        }))
+        Err(error.unwrap_or_else(resolve_none))
     }
 
     /// Sends data on the socket to the remote address to which it is connected.
