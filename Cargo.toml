@@ -9,7 +9,7 @@ repository = "https://github.com/Hexilee/titan-io"
 documentation = "https://docs.rs/tio"
 homepage = "https://github.com/Hexilee/titan-io"
 description = """
-Yet another solution for asynchronous io.
+Yet another async io solution.
 """
 keywords = ["async", "await", "future", "std", "task"]
 categories = ["asynchronous", "concurrency", "network-programming"]
