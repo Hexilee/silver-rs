@@ -56,7 +56,11 @@ static POOL: Lazy<Arc<Pool>> = Lazy::new(|| {
 });
 
 #[inline]
-fn find_task<T>(local: &Worker<T>, global: &Injector<T>, stealers: &[Stealer<T>]) -> Option<T> {
+fn find_task<T>(
+    local: &Worker<T>,
+    global: &Injector<T>,
+    stealers: &[Stealer<T>],
+) -> Option<T> {
     // Pop a task from the local queue, if not empty.
     local.pop().or_else(|| {
         // Otherwise, we need to look for a task elsewhere.
@@ -82,6 +86,28 @@ fn schedule(t: Task) {
     }
 }
 
+/// Spawns a task.
+///
+/// This function is similar to [`std::thread::spawn`], except it spawns an asynchronous task.
+///
+/// [`std::thread`]: https://doc.rust-lang.org/std/thread/fn.spawn.html
+///
+/// # Examples
+///
+/// ```
+/// # tio::task::block_on(async {
+/// #
+/// use tio::task;
+///
+/// let handle = task::spawn(async {
+///     1 + 2
+/// });
+///
+/// assert_eq!(handle.await, 3);
+/// #
+/// # })
+/// ```
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async-rt")))]
 pub fn spawn<F, R>(fut: F) -> JoinHandle<R>
 where
     R: 'static + Send,

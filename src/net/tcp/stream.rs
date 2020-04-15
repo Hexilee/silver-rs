@@ -52,7 +52,8 @@ impl TcpStream {
     async fn connect_once(addr: SocketAddr) -> io::Result<Self> {
         let watcher = Watcher::new(net::TcpStream::connect(addr)?);
         let inner = Arc::new(watcher);
-        future::poll_fn(|cx| inner.poll_write_with(cx, |mut o| o.write("".as_bytes()))).await?;
+        future::poll_fn(|cx| inner.poll_write_with(cx, |mut o| o.write("".as_bytes())))
+            .await?;
         match inner.take_error() {
             Ok(None) => Ok(Self(inner)),
             Ok(Some(err)) | Err(err) => Err(err),

@@ -82,7 +82,8 @@ impl UnixListener {
     /// ```
     pub async fn accept(&self) -> io::Result<(UnixStream, SocketAddr)> {
         let (io, addr) =
-            future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.accept())).await?;
+            future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.accept()))
+                .await?;
         let stream = UnixStream(Arc::new(Watcher::new(io)));
         Ok((stream, addr))
     }
@@ -134,8 +135,12 @@ impl Stream for UnixListener {
     /// #
     /// # Ok(()) }) }
     /// ```
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let (io, _) = futures::ready!(self.0.poll_read_with(cx, |inner| inner.accept()))?;
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let (io, _) =
+            futures::ready!(self.0.poll_read_with(cx, |inner| inner.accept()))?;
         let stream = UnixStream(Arc::new(Watcher::new(io)));
         Poll::Ready(Some(Ok(stream)))
     }

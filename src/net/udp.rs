@@ -133,7 +133,11 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
-    pub async fn send_to<A: ToSocketAddrs>(&self, buf: &[u8], addrs: A) -> io::Result<usize> {
+    pub async fn send_to<A: ToSocketAddrs>(
+        &self,
+        buf: &[u8],
+        addrs: A,
+    ) -> io::Result<usize> {
         let addr = match addrs.to_socket_addrs()?.next() {
             Some(addr) => addr,
             None => {
@@ -141,7 +145,10 @@ impl UdpSocket {
             }
         };
 
-        future::poll_fn(|cx| self.0.poll_write_with(cx, |inner| inner.send_to(buf, addr))).await
+        future::poll_fn(|cx| {
+            self.0.poll_write_with(cx, |inner| inner.send_to(buf, addr))
+        })
+        .await
     }
 
     /// Receives data from the socket.
@@ -164,7 +171,8 @@ impl UdpSocket {
     /// # Ok(()) }) }
     /// ```
     pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.recv_from(buf))).await
+        future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.recv_from(buf)))
+            .await
     }
 
     /// Connects the UDP socket to a remote address.
@@ -369,7 +377,11 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
-    pub fn join_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
+    pub fn join_multicast_v4(
+        &self,
+        multiaddr: Ipv4Addr,
+        interface: Ipv4Addr,
+    ) -> io::Result<()> {
         self.0.join_multicast_v4(&multiaddr, &interface)
     }
 
@@ -396,7 +408,11 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
-    pub fn join_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
+    pub fn join_multicast_v6(
+        &self,
+        multiaddr: &Ipv6Addr,
+        interface: u32,
+    ) -> io::Result<()> {
         self.0.join_multicast_v6(multiaddr, interface)
     }
 
@@ -405,7 +421,11 @@ impl UdpSocket {
     /// For more information about this option, see [`join_multicast_v4`].
     ///
     /// [`join_multicast_v4`]: #method.join_multicast_v4
-    pub fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
+    pub fn leave_multicast_v4(
+        &self,
+        multiaddr: Ipv4Addr,
+        interface: Ipv4Addr,
+    ) -> io::Result<()> {
         self.0.leave_multicast_v4(&multiaddr, &interface)
     }
 
@@ -414,7 +434,11 @@ impl UdpSocket {
     /// For more information about this option, see [`join_multicast_v6`].
     ///
     /// [`join_multicast_v6`]: #method.join_multicast_v6
-    pub fn leave_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
+    pub fn leave_multicast_v6(
+        &self,
+        multiaddr: &Ipv6Addr,
+        interface: u32,
+    ) -> io::Result<()> {
         self.0.leave_multicast_v6(multiaddr, interface)
     }
 }

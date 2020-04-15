@@ -36,6 +36,31 @@ impl Drop for RunningGuard {
     }
 }
 
+/// Spawns a task and blocks the current thread on its result.
+///
+/// Calling this function is similar to [spawning] a thread and immediately [joining] it, except an
+/// asynchronous task will be spawned.
+///
+/// See also: [`task::spawn_blocking`].
+///
+/// [`task::spawn_blocking`]: fn.spawn_blocking.html
+///
+/// [spawning]: https://doc.rust-lang.org/std/thread/fn.spawn.html
+/// [joining]: https://doc.rust-lang.org/std/thread/struct.JoinHandle.html#method.join
+///
+/// # Examples
+///
+/// ```no_run
+/// use tio::task;
+///
+/// fn main() {
+///     let val = task::block_on(async {
+///         println!("Hello, world!");
+///         1
+///     });
+///     assert_eq!(1, val);
+/// }
+/// ```
 pub fn block_on<F>(fut: F) -> F::Output
 where
     F: Future,

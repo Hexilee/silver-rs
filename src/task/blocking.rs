@@ -56,6 +56,34 @@ fn start_thread(recv: Receiver<Task>) {
         .expect("cannot start a blocking thread");
 }
 
+/// Spawns a blocking task.
+///
+/// The task will be spawned onto a thread pool specifically dedicated to blocking tasks. This
+/// is useful to prevent long-running synchronous operations from blocking the main futures
+/// executor.
+///
+/// See also: [`task::block_on`], [`task::spawn`].
+///
+/// [`task::block_on`]: fn.block_on.html
+/// [`task::spawn`]: fn.spawn.html
+///
+/// # Examples
+///
+/// Basic usage:
+///
+/// ```
+/// # tio::task::block_on(async {
+/// #
+/// use tio::task;
+///
+/// let val = task::spawn_blocking(|| {
+///     println!("long-running task here");
+///     1
+/// }).await;
+/// assert_eq!(1, val);
+/// #
+/// # })
+/// ```
 pub fn spawn_blocking<F, R>(f: F) -> JoinHandle<R>
 where
     R: 'static + Send,

@@ -103,18 +103,23 @@ mod spawn_blocking {
 
     #[bench]
     fn tio_spawn_blocking(b: &mut Bencher) {
-        let tasks =
-            || join_all((0..TASKS).map(|_| tio::task::spawn_blocking(|| read(FILE_PATH).unwrap())));
+        let tasks = || {
+            join_all(
+                (0..TASKS)
+                    .map(|_| tio::task::spawn_blocking(|| read(FILE_PATH).unwrap())),
+            )
+        };
         b.iter(|| block_on(tasks()))
     }
 
     #[bench]
     fn async_std_spawn_blocking(b: &mut Bencher) {
-        let tasks = || {
-            join_all(
-                (0..TASKS).map(|_| async_std::task::spawn_blocking(|| read(FILE_PATH).unwrap())),
-            )
-        };
+        let tasks =
+            || {
+                join_all((0..TASKS).map(|_| {
+                    async_std::task::spawn_blocking(|| read(FILE_PATH).unwrap())
+                }))
+            };
         b.iter(|| block_on(tasks()))
     }
 }

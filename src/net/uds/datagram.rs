@@ -188,7 +188,8 @@ impl UnixDatagram {
     /// # Ok(()) }) }
     /// ```
     pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.recv_from(buf))).await
+        future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.recv_from(buf)))
+            .await
     }
 
     /// Receives data from the socket.
@@ -228,7 +229,11 @@ impl UnixDatagram {
     /// #
     /// # Ok(()) }) }
     /// ```
-    pub async fn send_to<P: AsRef<Path>>(&self, buf: &[u8], path: P) -> io::Result<usize> {
+    pub async fn send_to<P: AsRef<Path>>(
+        &self,
+        buf: &[u8],
+        path: P,
+    ) -> io::Result<usize> {
         future::poll_fn(|cx| {
             self.0
                 .poll_write_with(cx, |inner| inner.send_to(buf, path.as_ref()))
