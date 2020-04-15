@@ -78,22 +78,17 @@ impl TcpStream {
     ///
     /// # Blocking
     ///
-    /// This method may be blocked by addrs resolving.
-    /// You can construct a [`std::net::TcpStream`] by [`spawn_blocking`],
-    /// then convert it to [`TcpStream`] by [`std::convert::Into`].
+    /// This method may be blocked by resolving.
+    /// You can resolve addrs asynchronously by [`Resolver`].
     ///
-    /// [`spawn_blocking`]: ../task/fn.spawn_blocking.html
-    /// [`std::net::TcpStream`]: https://doc.rust-lang.org/std/net/struct.TcpStream.html
-    /// [`std::convert::Into`]: https://doc.rust-lang.org/std/convert/trait.Into.html
+    /// [`Resolver`]: trait.Resolver.html
     /// ```no_run
     /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
     /// #
-    /// use tio::net::TcpStream;
-    /// use std::net::TcpStream as StdStream;
-    /// use tio::task::spawn_blocking;
+    /// use tio::net::{TcpStream, Resolver};
     ///
-    /// let stream: TcpStream = spawn_blocking(|| StdStream::connect("github.com"))
-    ///     .await?.into();
+    /// let addrs = "github.com".resolve().await?;
+    /// let stream = TcpStream::connect(addrs.as_slice()).await?;
     ///
     /// # Ok(()) }) }
     /// ```
