@@ -1,15 +1,18 @@
 mod block;
 mod blocking;
+
+#[cfg(feature = "async-rt")]
 mod spawn;
 
 pub use block::block_on;
 pub use blocking::spawn_blocking;
+#[cfg(feature = "async-rt")]
 pub use spawn::spawn;
 
-use futures::task::{Context, Poll};
 use std::future::Future;
 use std::panic::resume_unwind;
 use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::thread::Result;
 
 type Task = async_task::Task<()>;
