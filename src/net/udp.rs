@@ -1,7 +1,6 @@
 use crate::net::poll::Watcher;
 use futures::future;
 use mio::net;
-use std::convert::TryFrom;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket as StdSocket};
 use std::sync::Arc;
@@ -48,7 +47,7 @@ pub struct UdpSocket(Arc<Watcher<net::UdpSocket>>);
 impl UdpSocket {
     /// Bind a socket addr
     fn bind_once(addr: SocketAddr) -> io::Result<Self> {
-        let watcher = Watcher::with(net::UdpSocket::bind(addr)?)?;
+        let watcher = Watcher::new(net::UdpSocket::bind(addr)?);
         let inner = Arc::new(watcher);
         match inner.take_error() {
             Ok(None) => Ok(Self(inner)),
@@ -433,11 +432,9 @@ impl UdpSocket {
     }
 }
 
-impl TryFrom<StdSocket> for UdpSocket {
-    type Error = io::Error;
-    /// Converts a `std::net::UdpSocket` into its asynchronous equivalent.
-    fn try_from(socket: StdSocket) -> Result<Self, Self::Error> {
-        let watcher = Watcher::with(net::UdpSocket::from_std(socket))?;
-        Ok(Self(Arc::new(watcher)))
+impl From<StdSocket> for UdpSocket {
+    fn from(socket: StdSocket) -> Self {
+        let watcher = Watcher::new(net::UdpSocket::from_std(socket));
+        Self(Arc::new(watcher))
     }
 }

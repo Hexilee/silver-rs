@@ -2,7 +2,6 @@ use crate::net::poll::Watcher;
 use futures::task::{Context, Poll};
 use futures::{future, AsyncRead, AsyncWrite};
 use mio::net;
-use std::convert::TryFrom;
 use std::io::{self, IoSlice, IoSliceMut, Read, Write};
 use std::net::{SocketAddr, TcpStream as StdStream, ToSocketAddrs};
 use std::pin::Pin;
@@ -50,7 +49,7 @@ pub struct TcpStream(pub(crate) Arc<Watcher<net::TcpStream>>);
 impl TcpStream {
     /// Connect to a socket addr
     async fn connect_once(addr: SocketAddr) -> io::Result<Self> {
-        let watcher = Watcher::with(net::TcpStream::connect(addr)?)?;
+        let watcher = Watcher::new(net::TcpStream::connect(addr)?);
         let inner = Arc::new(watcher);
         future::poll_fn(|cx| inner.poll_write_with(cx, |mut o| o.write("".as_bytes()))).await?;
         match inner.take_error() {
@@ -81,21 +80,20 @@ impl TcpStream {
     ///
     /// This method may be blocked by addrs resolving.
     /// You can construct a [`std::net::TcpStream`] by [`spawn_blocking`],
-    /// then convert it to [`TcpStream`] by [`std::convert::TryInto`].
+    /// then convert it to [`TcpStream`] by [`std::convert::Into`].
     ///
     /// [`spawn_blocking`]: ../task/fn.spawn_blocking.html
     /// [`std::net::TcpStream`]: https://doc.rust-lang.org/std/net/struct.TcpStream.html
-    /// [`std::convert::TryInto`]: https://doc.rust-lang.org/std/convert/trait.TryInto.html
+    /// [`std::convert::Into`]: https://doc.rust-lang.org/std/convert/trait.Into.html
     /// ```no_run
     /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
     /// #
     /// use tio::net::TcpStream;
     /// use std::net::TcpStream as StdStream;
-    /// use std::convert::TryInto;
     /// use tio::task::spawn_blocking;
     ///
     /// let stream: TcpStream = spawn_blocking(|| StdStream::connect("github.com"))
-    ///     .await?.try_into()?;
+    ///     .await?.into();
     ///
     /// # Ok(()) }) }
     /// ```
@@ -301,11 +299,10 @@ impl TcpStream {
     }
 }
 
-impl TryFrom<StdStream> for TcpStream {
-    type Error = io::Error;
-    fn try_from(stream: StdStream) -> Result<Self, Self::Error> {
-        let watcher = Watcher::with(net::TcpStream::from_std(stream))?;
-        Ok(Self(Arc::new(watcher)))
+impl From<StdStream> for TcpStream {
+    fn from(stream: StdStream) -> Self {
+        let watcher = Watcher::new(net::TcpStream::from_std(stream));
+        Self(Arc::new(watcher))
     }
 }
 

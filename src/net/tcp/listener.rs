@@ -3,7 +3,6 @@ use crate::net::poll::Watcher;
 use futures::task::{Context, Poll};
 use futures::{future, Stream};
 use mio::net;
-use std::convert::TryFrom;
 use std::io;
 use std::net::{SocketAddr, TcpListener as StdListener, ToSocketAddrs};
 use std::pin::Pin;
@@ -52,7 +51,7 @@ pub struct TcpListener(Arc<Watcher<net::TcpListener>>);
 impl TcpListener {
     /// Bind a socket addr
     fn bind_once(addr: SocketAddr) -> io::Result<Self> {
-        let watcher = Watcher::with(net::TcpListener::bind(addr)?)?;
+        let watcher = Watcher::new(net::TcpListener::bind(addr)?);
         let inner = Arc::new(watcher);
         match inner.take_error() {
             Ok(None) => Ok(Self(inner)),
@@ -119,7 +118,7 @@ impl TcpListener {
         let (io, addr) =
             future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.accept())).await?;
 
-        let stream = TcpStream(Arc::new(Watcher::with(io)?));
+        let stream = TcpStream(Arc::new(Watcher::new(io)));
         Ok((stream, addr))
     }
 
@@ -173,16 +172,14 @@ impl Stream for TcpListener {
     /// ```
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let (io, _) = futures::ready!(self.0.poll_read_with(cx, |inner| inner.accept()))?;
-        let stream = TcpStream(Arc::new(Watcher::with(io)?));
+        let stream = TcpStream(Arc::new(Watcher::new(io)));
         Poll::Ready(Some(Ok(stream)))
     }
 }
 
-impl TryFrom<StdListener> for TcpListener {
-    type Error = io::Error;
-
-    fn try_from(listener: StdListener) -> Result<Self, Self::Error> {
-        let watcher = Watcher::with(net::TcpListener::from_std(listener))?;
-        Ok(Self(Arc::new(watcher)))
+impl From<StdListener> for TcpListener {
+    fn from(listener: StdListener) -> Self {
+        let watcher = Watcher::new(net::TcpListener::from_std(listener));
+        Self(Arc::new(watcher))
     }
 }

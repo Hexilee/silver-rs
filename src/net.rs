@@ -1,4 +1,5 @@
 mod poll;
+mod resolve;
 mod util;
 
 #[cfg(feature = "tcp")]
@@ -12,3 +13,6 @@ mod udp;
 
 #[cfg(feature = "udp")]
 pub use udp::UdpSocket;
+
+#[cfg(all(unix, feature = "uds"))]
+pub mod uds;

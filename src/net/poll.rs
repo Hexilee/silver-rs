@@ -99,7 +99,7 @@ impl<S> Watcher<S>
 where
     S: event::Source,
 {
-    pub fn with(mut source: S) -> io::Result<Self> {
+    pub fn new(mut source: S) -> Self {
         let index = REACTOR
             .wakers
             .write()
@@ -108,8 +108,9 @@ where
         let token = Token(index);
         REACTOR
             .registry
-            .register(&mut source, token, ALL_INTEREST)?;
-        Ok(Self { token, source })
+            .register(&mut source, token, ALL_INTEREST)
+            .expect("fail to register source");
+        Self { token, source }
     }
 
     pub fn poll_read_with<'a, F, R>(
