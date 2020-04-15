@@ -5,4 +5,4 @@ mod util;
 mod tcp;
 
 #[cfg(feature = "tcp")]
-pub use tcp::TcpStream;
+pub use tcp::{TcpListener, TcpStream};

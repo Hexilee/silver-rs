@@ -34,7 +34,7 @@ use std::sync::Arc;
 /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
 /// #
 /// use tio::net::TcpStream;
-/// use futures::io::{AsyncWriteExt, AsyncReadExt};
+/// use futures::prelude::*;
 ///
 /// let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
 /// stream.write_all(b"hello world").await?;
@@ -45,7 +45,7 @@ use std::sync::Arc;
 /// # Ok(()) }) }
 /// ```
 #[derive(Debug, Clone)]
-pub struct TcpStream(Arc<Watcher<net::TcpStream>>);
+pub struct TcpStream(pub(crate) Arc<Watcher<net::TcpStream>>);
 
 impl TcpStream {
     /// Connect to a socket addr
