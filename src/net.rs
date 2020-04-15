@@ -1,5 +1,4 @@
 mod poll;
-mod resolve;
 mod util;
 
 #[cfg(feature = "tcp")]
@@ -19,3 +18,5 @@ pub mod uds;
 
 #[cfg(all(unix, feature = "uds"))]
 pub use uds::{UnixDatagram, UnixListener, UnixStream};
+
+pub use util::Resolver;
