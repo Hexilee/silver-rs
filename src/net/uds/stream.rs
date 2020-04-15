@@ -1,19 +1,142 @@
 use super::SocketAddr;
 use crate::net::poll::Watcher;
 use futures::task::{Context, Poll};
-use futures::{future, AsyncRead, AsyncWrite};
+use futures::{AsyncRead, AsyncWrite};
 use mio::net;
 use std::io::{self, IoSlice, IoSliceMut, Read, Write};
+use std::net::Shutdown;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::net::UnixStream as StdStream;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 
+/// A Unix stream socket.
+///
+/// This type is an async version of [`std::os::unix::net::UnixStream`].
+///
+/// [`std::os::unix::net::UnixStream`]:
+/// https://doc.rust-lang.org/std/os/unix/net/struct.UnixStream.html
+///
+/// # Examples
+///
+/// ```no_run
+/// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
+/// #
+/// use tio::net::UnixStream;
+/// use futures::prelude::*;
+///
+/// let mut stream = UnixStream::connect("/tmp/socket")?;
+/// stream.write_all(b"hello world").await?;
+///
+/// let mut response = Vec::new();
+/// stream.read_to_end(&mut response).await?;
+/// #
+/// # Ok(()) }) }
+/// ```
 #[derive(Debug, Clone)]
 pub struct UnixStream(pub(crate) Arc<Watcher<net::UnixStream>>);
 
-impl UnixStream {}
+impl UnixStream {
+    /// Connects to the socket to the specified address.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
+    /// #
+    /// use tio::net::UnixStream;
+    ///
+    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// #
+    /// # Ok(()) }) }
+    /// ```
+    pub fn connect<P: AsRef<Path>>(path: P) -> io::Result<UnixStream> {
+        let path = path.as_ref().to_owned();
+        let mio_stream = net::UnixStream::connect(path)?;
+        Ok(UnixStream(Arc::new(Watcher::new(mio_stream))))
+    }
+
+    /// Creates an unnamed pair of connected sockets.
+    ///
+    /// Returns two streams which are connected to each other.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
+    /// #
+    /// use tio::net::UnixStream;
+    ///
+    /// let stream = UnixStream::pair()?;
+    /// #
+    /// # Ok(()) }) }
+    /// ```
+    pub fn pair() -> io::Result<(UnixStream, UnixStream)> {
+        let (a, b) = net::UnixStream::pair()?;
+        let a = UnixStream(Arc::new(Watcher::new(a)));
+        let b = UnixStream(Arc::new(Watcher::new(b)));
+        Ok((a, b))
+    }
+
+    /// Returns the socket address of the local half of this connection.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
+    /// #
+    /// use tio::net::UnixStream;
+    ///
+    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// let addr = stream.local_addr()?;
+    /// #
+    /// # Ok(()) }) }
+    /// ```
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.0.local_addr()
+    }
+
+    /// Returns the socket address of the remote half of this connection.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
+    /// #
+    /// use tio::net::UnixStream;
+    ///
+    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// let peer = stream.peer_addr()?;
+    /// #
+    /// # Ok(()) }) }
+    /// ```
+    pub fn peer_addr(&self) -> io::Result<SocketAddr> {
+        self.0.peer_addr()
+    }
+
+    /// Shuts down the read, write, or both halves of this connection.
+    ///
+    /// This function will cause all pending and future I/O calls on the specified portions to
+    /// immediately return with an appropriate value (see the documentation of [`Shutdown`]).
+    ///
+    /// [`Shutdown`]: https://doc.rust-lang.org/std/net/enum.Shutdown.html
+    ///
+    /// ```no_run
+    /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
+    /// #
+    /// use tio::net::UnixStream;
+    /// use std::net::Shutdown;
+    ///
+    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// stream.shutdown(Shutdown::Both)?;
+    /// #
+    /// # Ok(()) }) }
+    /// ```
+    pub fn shutdown(&self, how: Shutdown) -> io::Result<()> {
+        self.0.shutdown(how)
+    }
+}
 
 impl From<StdStream> for UnixStream {
     fn from(stream: StdStream) -> Self {

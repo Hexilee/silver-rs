@@ -16,3 +16,6 @@ pub use udp::UdpSocket;
 
 #[cfg(all(unix, feature = "uds"))]
 pub mod uds;
+
+#[cfg(all(unix, feature = "uds"))]
+pub use uds::UnixStream;
