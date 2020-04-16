@@ -15,7 +15,7 @@ jobs:
       max-parallel: 1
       matrix:
         package:
-          - name: titan-io
+          - name: tio
             registryName: tio
             path: .
             publishPath: /target/package
