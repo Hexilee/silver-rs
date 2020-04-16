@@ -364,25 +364,35 @@ mod tests {
     And if you wrong us, shall we not revenge?
     ";
 
-    fn start_server() -> io::Result<SocketAddr> {
+    fn start_server(need_data: bool) -> io::Result<SocketAddr> {
         use std::io::{Read, Write};
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
-        thread::spawn(move || {
-            let mut data = [0; DATA.len()];
-            while let Ok((mut stream, addr)) = listener.accept() {
-                stream.read_exact(data.as_mut()).unwrap();
-                assert_eq!(DATA, data.as_ref());
-                stream.write_all(addr.to_string().as_bytes()).unwrap();
-            }
-        });
+        if need_data {
+            thread::spawn(move || {
+                let mut data = [0; DATA.len()];
+                while let Ok((mut stream, addr)) = listener.accept() {
+                    stream.read_exact(data.as_mut()).unwrap();
+                    assert_eq!(DATA, data.as_ref());
+                    stream.write_all(addr.to_string().as_bytes()).unwrap();
+                }
+            });
+        } else {
+            thread::spawn(move || {
+                let mut data = [0; 1024];
+                let (mut stream, _) = listener.accept().unwrap();
+                while let Ok(_) = stream.read(&mut data) {
+                    // do nothing...
+                }
+            });
+        }
         Ok(addr)
     }
 
     #[test]
     fn stream_async() -> io::Result<()> {
         block_on(async {
-            let addr = start_server()?;
+            let addr = start_server(true)?;
             let mut stream = TcpStream::connect(addr).await?;
             stream.write_all(DATA).await?;
 
@@ -402,7 +412,7 @@ mod tests {
         }
 
         block_on(async {
-            let addr = start_server()?;
+            let addr = start_server(true)?;
             let mut stream = TcpStream::connect(addr).await?;
             stream.write_all(DATA).await?;
             let data1 = peek_to_string(stream.clone()).await?;
@@ -416,8 +426,7 @@ mod tests {
     #[test]
     fn peer_addr() -> io::Result<()> {
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:0")?;
-            let addr = listener.local_addr()?;
+            let addr = start_server(false)?;
             let stream = TcpStream::connect(addr).await?;
             let peer_addr = stream.peer_addr()?;
             Ok(assert_eq!(addr, peer_addr))
@@ -426,8 +435,7 @@ mod tests {
     #[test]
     fn ttl() -> io::Result<()> {
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:0")?;
-            let addr = listener.local_addr()?;
+            let addr = start_server(false)?;
             let stream = TcpStream::connect(addr).await?;
             stream.set_ttl(100)?;
             Ok(assert_eq!(100, stream.ttl()?))
@@ -436,8 +444,7 @@ mod tests {
     #[test]
     fn no_delay() -> io::Result<()> {
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:0")?;
-            let addr = listener.local_addr()?;
+            let addr = start_server(false)?;
             let stream = TcpStream::connect(addr).await?;
             let no_delay = stream.nodelay()?;
             stream.set_nodelay(!no_delay)?;
@@ -448,8 +455,7 @@ mod tests {
     #[test]
     fn shutdown() -> io::Result<()> {
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:0")?;
-            let addr = listener.local_addr()?;
+            let addr = start_server(false)?;
             let mut stream = TcpStream::connect(addr).await?;
             stream.shutdown(Shutdown::Write)?;
             Ok(assert!(stream.write_all(DATA).await.is_err()))
