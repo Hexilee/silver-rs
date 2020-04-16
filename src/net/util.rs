@@ -5,7 +5,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::task::Poll;
 
 /// An exception
-pub const WAKERS_LOCK_POISONED: &str = "wakers lock poisoned";
+pub const ENTRIES_LOCK_POISONED: &str = "entries lock poisoned";
 
 /// Async address resolver
 pub trait Resolver: ToSocketAddrs {
