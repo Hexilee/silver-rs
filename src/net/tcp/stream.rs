@@ -354,7 +354,7 @@ mod tests {
     use crate::task::block_on;
     use futures::{AsyncReadExt, AsyncWriteExt};
     use std::io;
-    use std::net::{SocketAddr, TcpListener};
+    use std::net::{Shutdown, SocketAddr, TcpListener};
     use std::thread;
 
     const DATA: &[u8] = b"
@@ -381,8 +381,8 @@ mod tests {
 
     #[test]
     fn stream_async() -> io::Result<()> {
-        let addr = start_server()?;
-        block_on(async move {
+        block_on(async {
+            let addr = start_server()?;
             let mut stream = TcpStream::connect(addr).await?;
             stream.write_all(DATA).await?;
 
@@ -390,6 +390,69 @@ mod tests {
             stream.read_to_string(&mut recv_data).await?;
             let local_addr: SocketAddr = recv_data.parse().unwrap();
             Ok(assert_eq!(local_addr, stream.local_addr()?))
+        })
+    }
+
+    #[test]
+    fn peek() -> io::Result<()> {
+        async fn peek_to_string(stream: TcpStream) -> io::Result<String> {
+            let mut data = [0; 1024];
+            let size = stream.peek(&mut data).await?;
+            Ok(String::from_utf8(data[..size].to_vec()).unwrap())
+        }
+
+        block_on(async {
+            let addr = start_server()?;
+            let mut stream = TcpStream::connect(addr).await?;
+            stream.write_all(DATA).await?;
+            let data1 = peek_to_string(stream.clone()).await?;
+            let data2 = peek_to_string(stream.clone()).await?;
+            let local_addr: SocketAddr = data1.parse().unwrap();
+            assert_eq!(data1, data2);
+            Ok(assert_eq!(local_addr, stream.local_addr()?))
+        })
+    }
+
+    #[test]
+    fn peer_addr() -> io::Result<()> {
+        block_on(async {
+            let listener = TcpListener::bind("127.0.0.1:0")?;
+            let addr = listener.local_addr()?;
+            let stream = TcpStream::connect(addr).await?;
+            let peer_addr = stream.peer_addr()?;
+            Ok(assert_eq!(addr, peer_addr))
+        })
+    }
+    #[test]
+    fn ttl() -> io::Result<()> {
+        block_on(async {
+            let listener = TcpListener::bind("127.0.0.1:0")?;
+            let addr = listener.local_addr()?;
+            let stream = TcpStream::connect(addr).await?;
+            stream.set_ttl(100)?;
+            Ok(assert_eq!(100, stream.ttl()?))
+        })
+    }
+    #[test]
+    fn no_delay() -> io::Result<()> {
+        block_on(async {
+            let listener = TcpListener::bind("127.0.0.1:0")?;
+            let addr = listener.local_addr()?;
+            let stream = TcpStream::connect(addr).await?;
+            let no_delay = stream.nodelay()?;
+            stream.set_nodelay(!no_delay)?;
+            Ok(assert_eq!(!no_delay, stream.nodelay()?))
+        })
+    }
+
+    #[test]
+    fn shutdown() -> io::Result<()> {
+        block_on(async {
+            let listener = TcpListener::bind("127.0.0.1:0")?;
+            let addr = listener.local_addr()?;
+            let mut stream = TcpStream::connect(addr).await?;
+            stream.shutdown(Shutdown::Write)?;
+            Ok(assert!(stream.write_all(DATA).await.is_err()))
         })
     }
 }
