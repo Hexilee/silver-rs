@@ -1,4 +1,5 @@
 use crate::task::{spawn_blocking, JoinHandle};
+use std::future::Future;
 use std::io::{self, ErrorKind::*, Result};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::task::Poll;
@@ -8,6 +9,8 @@ pub const WAKERS_LOCK_POISONED: &str = "wakers lock poisoned";
 
 /// Async address resolver
 pub trait Resolver: ToSocketAddrs {
+    /// Future to resolve address
+    type ResolveFuture: Future<Output = io::Result<Vec<SocketAddr>>>;
     /// Resolve address asynchronously
     ///
     /// # Example
@@ -22,7 +25,7 @@ pub trait Resolver: ToSocketAddrs {
     ///
     /// # Ok(()) }) }
     /// ```
-    fn resolve(self) -> JoinHandle<io::Result<Vec<SocketAddr>>>;
+    fn resolve(self) -> Self::ResolveFuture;
 }
 
 impl<A> Resolver for A
@@ -30,8 +33,9 @@ where
     A: 'static + Send + ToSocketAddrs,
     A::Iter: 'static + Send,
 {
+    type ResolveFuture = JoinHandle<io::Result<Vec<SocketAddr>>>;
     #[inline]
-    fn resolve(self) -> JoinHandle<io::Result<Vec<SocketAddr>>> {
+    fn resolve(self) -> Self::ResolveFuture {
         spawn_blocking(move || self.to_socket_addrs().map(Iterator::collect))
     }
 }
