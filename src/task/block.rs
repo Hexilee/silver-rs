@@ -19,6 +19,7 @@ thread_local! {
 struct RunningGuard;
 
 impl RunningGuard {
+    #[inline]
     fn new() -> Self {
         IS_RUNNING.with(|is_running| {
             if is_running.get() {
@@ -31,6 +32,7 @@ impl RunningGuard {
 }
 
 impl Drop for RunningGuard {
+    #[inline]
     fn drop(&mut self) {
         IS_RUNNING.with(|is_running| is_running.set(false));
     }

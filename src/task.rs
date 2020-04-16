@@ -1,5 +1,6 @@
 mod block;
 mod blocking;
+mod yield_now;
 
 #[cfg(feature = "async-rt")]
 mod spawn;
@@ -9,6 +10,7 @@ pub use spawn::spawn;
 
 pub use block::block_on;
 pub use blocking::spawn_blocking;
+pub use yield_now::yield_now;
 
 use std::future::Future;
 use std::panic::resume_unwind;
@@ -31,6 +33,7 @@ pub struct JoinHandle<T>(async_task::JoinHandle<Result<T>, ()>);
 impl<T> Future for JoinHandle<T> {
     type Output = T;
 
+    #[inline]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.0).poll(cx).map(|opt| {
             match opt.expect("task cannot be canceled") {
