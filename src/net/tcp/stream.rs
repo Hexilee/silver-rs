@@ -404,6 +404,21 @@ mod tests {
     }
 
     #[test]
+    fn from_std() -> io::Result<()> {
+        let addr = start_server(true)?;
+        let raw_stream = std::net::TcpStream::connect(addr)?;
+        block_on(async move {
+            let mut stream = TcpStream::from(raw_stream);
+            stream.write_all(DATA).await?;
+
+            let mut recv_data = String::new();
+            stream.read_to_string(&mut recv_data).await?;
+            let local_addr: SocketAddr = recv_data.parse().unwrap();
+            Ok(assert_eq!(local_addr, stream.local_addr()?))
+        })
+    }
+
+    #[test]
     fn peek() -> io::Result<()> {
         async fn peek_to_string(stream: TcpStream) -> io::Result<String> {
             let mut data = [0; 1024];
