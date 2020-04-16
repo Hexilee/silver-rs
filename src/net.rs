@@ -5,19 +5,15 @@ mod util;
 pub use util::Resolver;
 
 #[cfg(feature = "tcp")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "tcp")))]
-pub mod tcp;
+mod tcp;
 
 #[cfg(feature = "tcp")]
-#[doc(no_inline)]
 pub use tcp::{TcpListener, TcpStream};
 
 #[cfg(feature = "udp")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "udp")))]
-pub mod udp;
+mod udp;
 
 #[cfg(feature = "udp")]
-#[doc(no_inline)]
 pub use udp::UdpSocket;
 
 #[cfg(all(unix, feature = "uds"))]

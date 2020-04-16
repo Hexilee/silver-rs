@@ -42,6 +42,7 @@ use std::sync::Arc;
 /// #
 /// # }) }
 /// ```
+#[cfg_attr(feature = "docs", doc(cfg(feature = "udp")))]
 #[derive(Debug, Clone)]
 pub struct UdpSocket(Arc<Watcher<net::UdpSocket>>);
 

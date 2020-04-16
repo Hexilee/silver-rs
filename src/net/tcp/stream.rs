@@ -44,6 +44,7 @@ use std::sync::Arc;
 /// #
 /// # Ok(()) }) }
 /// ```
+#[cfg_attr(feature = "docs", doc(cfg(feature = "tcp")))]
 #[derive(Debug, Clone)]
 pub struct TcpStream(pub(crate) Arc<Watcher<net::TcpStream>>);
 

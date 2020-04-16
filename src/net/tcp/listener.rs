@@ -46,6 +46,7 @@ use std::sync::Arc;
 /// #
 /// # Ok(()) }) }
 /// ```
+#[cfg_attr(feature = "docs", doc(cfg(feature = "tcp")))]
 #[derive(Debug, Clone)]
 pub struct TcpListener(Arc<Watcher<net::TcpListener>>);
 
