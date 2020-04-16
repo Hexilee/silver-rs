@@ -195,8 +195,12 @@ where
     where
         F: FnMut(&'a S) -> io::Result<R>,
     {
-        REACTOR.read(self.token, cx.waker().clone());
-        may_block(f(&self.source))
+        let mut poll = may_block(f(&self.source));
+        if poll.is_pending() {
+            REACTOR.read(self.token, cx.waker().clone());
+            poll = may_block(f(&self.source));
+        }
+        poll
     }
 
     #[inline]
@@ -208,8 +212,12 @@ where
     where
         F: FnMut(&'a S) -> io::Result<R>,
     {
-        REACTOR.write(self.token, cx.waker().clone());
-        may_block(f(&self.source))
+        let mut poll = may_block(f(&self.source));
+        if poll.is_pending() {
+            REACTOR.write(self.token, cx.waker().clone());
+            poll = may_block(f(&self.source));
+        }
+        poll
     }
 }
 

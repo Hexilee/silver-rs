@@ -364,11 +364,11 @@ mod tests {
     And if you wrong us, shall we not revenge?
     ";
 
-    fn start_server(need_data: bool) -> io::Result<SocketAddr> {
+    fn start_server(check: bool) -> io::Result<SocketAddr> {
         use std::io::{Read, Write};
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
-        if need_data {
+        if check {
             thread::spawn(move || {
                 let mut data = [0; DATA.len()];
                 while let Ok((mut stream, addr)) = listener.accept() {
