@@ -84,17 +84,7 @@ impl TcpStream {
     /// This method may be blocked by resolving.
     /// You can resolve addrs asynchronously by [`Resolver`].
     ///
-    /// [`Resolver`]: ../trait.Resolver.html
-    /// ```no_run
-    /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
-    /// #
-    /// use tio::net::{TcpStream, Resolver};
-    ///
-    /// let addrs = "github.com".resolve().await?;
-    /// let stream = TcpStream::connect(addrs.as_slice()).await?;
-    ///
-    /// # Ok(()) }) }
-    /// ```
+    /// [`Resolver`]: trait.Resolver.html
     pub async fn connect(addrs: impl ToSocketAddrs) -> io::Result<Self> {
         let mut error = None;
         for addr in addrs.to_socket_addrs()? {

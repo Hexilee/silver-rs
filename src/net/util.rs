@@ -15,12 +15,12 @@ pub trait Resolver: ToSocketAddrs {
     /// ```
     /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
     /// #
-    /// use tio::net::Resolver;
-    /// use std::net::SocketAddr;
+    /// use tio::net::{TcpStream, Resolver};
     ///
-    /// let addrs: Vec<SocketAddr> = "github.com:443".resolve().await?;
-    /// #
-    /// # Ok(()) })}
+    /// let addrs = "github.com:443".resolve().await?;
+    /// let stream = TcpStream::connect(addrs.as_slice()).await?;
+    ///
+    /// # Ok(()) }) }
     /// ```
     fn resolve(self) -> JoinHandle<io::Result<Vec<SocketAddr>>>;
 }

@@ -82,6 +82,13 @@ impl TcpListener {
     /// ```
     ///
     /// [`local_addr`]: #method.local_addr
+    ///
+    /// # Blocking
+    ///
+    /// This method may be blocked by resolving.
+    /// You can resolve addrs asynchronously by [`Resolver`].
+    ///
+    /// [`Resolver`]: trait.Resolver.html
     pub fn bind<A: ToSocketAddrs>(addrs: A) -> io::Result<TcpListener> {
         let mut error = None;
 

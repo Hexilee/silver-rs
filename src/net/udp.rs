@@ -75,6 +75,13 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    ///
+    /// # Blocking
+    ///
+    /// This method may be blocked by resolving.
+    /// You can resolve addrs asynchronously by [`Resolver`].
+    ///
+    /// [`Resolver`]: trait.Resolver.html
     pub fn bind<A: ToSocketAddrs>(addrs: A) -> io::Result<UdpSocket> {
         let mut error = None;
         for addr in addrs.to_socket_addrs()? {
@@ -134,6 +141,13 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    ///
+    /// # Blocking
+    ///
+    /// This method may be blocked by resolving.
+    /// You can resolve addrs asynchronously by [`Resolver`].
+    ///
+    /// [`Resolver`]: trait.Resolver.html
     pub async fn send_to<A: ToSocketAddrs>(
         &self,
         buf: &[u8],
@@ -198,6 +212,13 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    ///
+    /// # Blocking
+    ///
+    /// This method may be blocked by resolving.
+    /// You can resolve addrs asynchronously by [`Resolver`].
+    ///
+    /// [`Resolver`]: trait.Resolver.html
     pub async fn connect<A: ToSocketAddrs>(&self, addrs: A) -> io::Result<()> {
         let mut error = None;
         for addr in addrs.to_socket_addrs()? {
