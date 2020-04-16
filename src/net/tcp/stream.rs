@@ -111,6 +111,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         self.0.local_addr()
     }
@@ -129,6 +130,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
         self.0.peer_addr()
     }
@@ -153,6 +155,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn ttl(&self) -> io::Result<u32> {
         self.0.ttl()
     }
@@ -176,6 +179,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn set_ttl(&self, ttl: u32) -> io::Result<()> {
         self.0.set_ttl(ttl)
     }
@@ -202,6 +206,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
         future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.peek(buf))).await
     }
@@ -226,6 +231,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn nodelay(&self) -> io::Result<bool> {
         self.0.nodelay()
     }
@@ -252,6 +258,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn set_nodelay(&self, nodelay: bool) -> io::Result<()> {
         self.0.set_nodelay(nodelay)
     }
@@ -277,6 +284,7 @@ impl TcpStream {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn shutdown(&self, how: std::net::Shutdown) -> std::io::Result<()> {
         self.0.shutdown(how)
     }
@@ -340,31 +348,48 @@ impl AsyncWrite for TcpStream {
     }
 }
 
-impl Read for TcpStream {
-    #[inline]
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        (&mut &**self.0).read(buf)
+#[cfg(test)]
+mod tests {
+    use super::TcpStream;
+    use crate::task::block_on;
+    use futures::{AsyncReadExt, AsyncWriteExt};
+    use std::io;
+    use std::net::{SocketAddr, TcpListener};
+    use std::thread;
+
+    const DATA: &[u8] = b"
+    If you prick us, do we not bleed?
+    If you tickle us, do we not laugh?
+    If you poison us, do we not die?
+    And if you wrong us, shall we not revenge?
+    ";
+
+    fn start_server() -> io::Result<SocketAddr> {
+        use std::io::{Read, Write};
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let addr = listener.local_addr()?;
+        thread::spawn(move || {
+            let mut data = [0; DATA.len()];
+            while let Ok((mut stream, addr)) = listener.accept() {
+                stream.read_exact(data.as_mut()).unwrap();
+                assert_eq!(DATA, data.as_ref());
+                stream.write_all(addr.to_string().as_bytes()).unwrap();
+            }
+        });
+        Ok(addr)
     }
 
-    #[inline]
-    fn read_vectored(&mut self, bufs: &mut [IoSliceMut<'_>]) -> io::Result<usize> {
-        (&mut &**self.0).read_vectored(bufs)
-    }
-}
+    #[test]
+    fn stream_async() -> io::Result<()> {
+        let addr = start_server()?;
+        block_on(async move {
+            let mut stream = TcpStream::connect(addr).await?;
+            stream.write_all(DATA).await?;
 
-impl Write for TcpStream {
-    #[inline]
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        (&mut &**self.0).write(buf)
-    }
-
-    #[inline]
-    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize> {
-        (&mut &**self.0).write_vectored(bufs)
-    }
-
-    #[inline]
-    fn flush(&mut self) -> io::Result<()> {
-        (&mut &**self.0).flush()
+            let mut recv_data = String::new();
+            stream.read_to_string(&mut recv_data).await?;
+            let local_addr: SocketAddr = recv_data.parse().unwrap();
+            Ok(assert_eq!(local_addr, stream.local_addr()?))
+        })
     }
 }
