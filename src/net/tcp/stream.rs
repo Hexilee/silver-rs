@@ -477,3 +477,22 @@ mod tests {
         })
     }
 }
+
+#[cfg(unix)]
+mod unix {
+    use super::{StdStream, TcpStream};
+    use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+
+    impl AsRawFd for TcpStream {
+        fn as_raw_fd(&self) -> RawFd {
+            self.0.as_raw_fd()
+        }
+    }
+
+    impl FromRawFd for TcpStream {
+        unsafe fn from_raw_fd(fd: RawFd) -> TcpStream {
+            let socket = StdStream::from_raw_fd(fd);
+            socket.into()
+        }
+    }
+}

@@ -192,3 +192,22 @@ impl From<StdListener> for TcpListener {
         Self(Arc::new(watcher))
     }
 }
+
+#[cfg(unix)]
+mod unix {
+    use super::{StdListener, TcpListener};
+    use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+
+    impl AsRawFd for TcpListener {
+        fn as_raw_fd(&self) -> RawFd {
+            self.0.as_raw_fd()
+        }
+    }
+
+    impl FromRawFd for TcpListener {
+        unsafe fn from_raw_fd(fd: RawFd) -> TcpListener {
+            let listener = StdListener::from_raw_fd(fd);
+            listener.into()
+        }
+    }
+}

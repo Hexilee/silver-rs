@@ -471,3 +471,22 @@ impl From<StdSocket> for UdpSocket {
         Self(Arc::new(watcher))
     }
 }
+
+#[cfg(unix)]
+mod unix {
+    use super::{StdSocket, UdpSocket};
+    use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+
+    impl AsRawFd for UdpSocket {
+        fn as_raw_fd(&self) -> RawFd {
+            self.0.as_raw_fd()
+        }
+    }
+
+    impl FromRawFd for UdpSocket {
+        unsafe fn from_raw_fd(fd: RawFd) -> UdpSocket {
+            let socket = StdSocket::from_raw_fd(fd);
+            socket.into()
+        }
+    }
+}
