@@ -1,3 +1,5 @@
+//! Unix-specific networking extensions.
+
 mod datagram;
 mod listener;
 mod stream;

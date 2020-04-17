@@ -52,9 +52,8 @@ default = ["async-rt"]
 async-rt = ["crossbeam-deque", "crossbeam-queue", "num_cpus"]
 timer = ["futures-timer"]
 net = ["tcp", "udp", "uds"]
-tcp = ["mio/tcp", "mio-net"]
-udp = ["mio/udp", "mio-net"]
-uds = ["mio/uds", "mio-net"]
-mio-net = ["mio", "slab", "crossbeam-queue"]
-
+tcp = ["mio/tcp", "event-loop"]
+udp = ["mio/udp", "event-loop"]
+uds = ["mio/uds", "event-loop"]
+event-loop = ["mio", "slab", "crossbeam-queue"]
 
