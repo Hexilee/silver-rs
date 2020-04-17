@@ -8,6 +8,12 @@ mod spawn;
 #[cfg(feature = "async-rt")]
 pub use spawn::spawn;
 
+#[cfg(feature = "timer")]
+mod timer;
+
+#[cfg(feature = "timer")]
+pub use timer::{interval, sleep, Interval};
+
 pub use block::block_on;
 pub use blocking::spawn_blocking;
 pub use yield_now::yield_now;
@@ -36,7 +42,7 @@ impl<T> Future for JoinHandle<T> {
     #[inline]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.0).poll(cx).map(|opt| {
-            match opt.expect("task cannot be canceled") {
+            match opt.expect("task should not be canceled") {
                 Ok(ret) => ret,
                 Err(err) => resume_unwind(err),
             }

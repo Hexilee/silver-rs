@@ -29,6 +29,7 @@ crossbeam-deque = { version = "0.7.3", optional = true }
 crossbeam-queue = { version = "0.2.1", optional = true }
 mio = { version = "0.7.0", features = ["os-poll"], optional = true }
 slab = { version = "0.4.2", optional = true }
+futures-timer = { version = "3.0.2", optional = true }
 
 [dependencies.futures]
 version = "0.3.4"
@@ -46,9 +47,10 @@ required-features = ["nightly"]
 [features]
 nightly = []
 docs = ["full"]
-full = ["net", "async-rt"]
+full = ["net", "async-rt", "timer"]
 default = ["async-rt"]
 async-rt = ["crossbeam-deque", "crossbeam-queue", "num_cpus"]
+timer = ["futures-timer"]
 net = ["tcp", "udp", "uds"]
 tcp = ["mio/tcp", "mio-net"]
 udp = ["mio/udp", "mio-net"]
