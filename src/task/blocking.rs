@@ -97,3 +97,29 @@ where
     task.schedule();
     JoinHandle(handler)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::spawn_blocking;
+    use crate::task::block_on;
+
+    #[test]
+    fn basic() {
+        assert_eq!(1, block_on(spawn_blocking(|| 1)));
+    }
+
+    #[test]
+    fn unwind_uncaught() {
+        let val = block_on(async {
+            spawn_blocking(|| panic!("task panic"));
+            1
+        });
+        assert_eq!(1, val)
+    }
+
+    #[test]
+    #[should_panic]
+    fn unwind_caught() {
+        block_on(spawn_blocking(|| panic!("task panic")))
+    }
+}
