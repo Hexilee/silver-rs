@@ -348,6 +348,25 @@ impl AsyncWrite for TcpStream {
     }
 }
 
+#[cfg(unix)]
+mod unix {
+    use super::{StdStream, TcpStream};
+    use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+
+    impl AsRawFd for TcpStream {
+        fn as_raw_fd(&self) -> RawFd {
+            self.0.as_raw_fd()
+        }
+    }
+
+    impl FromRawFd for TcpStream {
+        unsafe fn from_raw_fd(fd: RawFd) -> TcpStream {
+            let socket = StdStream::from_raw_fd(fd);
+            socket.into()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::TcpStream;
@@ -475,24 +494,5 @@ mod tests {
             stream.shutdown(Shutdown::Write)?;
             Ok(assert!(stream.write_all(DATA).await.is_err()))
         })
-    }
-}
-
-#[cfg(unix)]
-mod unix {
-    use super::{StdStream, TcpStream};
-    use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
-
-    impl AsRawFd for TcpStream {
-        fn as_raw_fd(&self) -> RawFd {
-            self.0.as_raw_fd()
-        }
-    }
-
-    impl FromRawFd for TcpStream {
-        unsafe fn from_raw_fd(fd: RawFd) -> TcpStream {
-            let socket = StdStream::from_raw_fd(fd);
-            socket.into()
-        }
     }
 }
