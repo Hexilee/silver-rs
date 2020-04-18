@@ -211,3 +211,79 @@ mod unix {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{TcpListener, TcpStream};
+    use crate::task::{block_on, spawn};
+    use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
+    use std::io;
+    use std::net::SocketAddr;
+
+    const DATA: &[u8] = b"
+    If you prick us, do we not bleed?
+    If you tickle us, do we not laugh?
+    If you poison us, do we not die?
+    And if you wrong us, shall we not revenge?
+    ";
+
+    async fn connect(server_addr: SocketAddr) -> io::Result<()> {
+        let mut client = TcpStream::connect(server_addr).await?;
+        client.write_all(DATA).await?;
+        let mut recv_data = String::new();
+        client.read_to_string(&mut recv_data).await?;
+        let client_addr: SocketAddr = recv_data.parse().unwrap();
+        Ok(assert_eq!(client.local_addr()?, client_addr))
+    }
+
+    #[test]
+    fn listener_accept() -> io::Result<()> {
+        block_on(async {
+            let listener = TcpListener::bind("127.0.0.1:0")?;
+            let server_addr = listener.local_addr()?;
+            spawn(async move {
+                let (mut stream, addr) = listener.accept().await?;
+                stream.write_all(addr.to_string().as_bytes()).await?;
+                let mut data = [0; DATA.len()];
+                stream.read_exact(&mut data).await?;
+                Ok::<_, io::Error>(assert_eq!(DATA, data.as_ref()))
+            });
+            connect(server_addr).await
+        })
+    }
+
+    #[test]
+    fn listener_stream() -> io::Result<()> {
+        block_on(async {
+            let mut listener = TcpListener::bind("127.0.0.1:0")?;
+            let server_addr = listener.local_addr()?;
+            spawn(async move {
+                let mut stream = listener.next().await.unwrap()?;
+                let addr = stream.peer_addr()?;
+                stream.write_all(addr.to_string().as_bytes()).await?;
+                let mut data = [0; DATA.len()];
+                stream.read_exact(&mut data).await?;
+                Ok::<_, io::Error>(assert_eq!(DATA, data.as_ref()))
+            });
+            connect(server_addr).await
+        })
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn listener_raw_fd() -> io::Result<()> {
+        use std::os::unix::io::{AsRawFd, FromRawFd};
+        block_on(async {
+            let listener = TcpListener::bind("127.0.0.1:0")?;
+            let cloned = unsafe { TcpListener::from_raw_fd(listener.as_raw_fd()) };
+            spawn(async move {
+                let (mut stream, addr) = cloned.accept().await?;
+                stream.write_all(addr.to_string().as_bytes()).await?;
+                let mut data = [0; DATA.len()];
+                stream.read_exact(&mut data).await?;
+                Ok::<_, io::Error>(assert_eq!(DATA, data.as_ref()))
+            });
+            connect(listener.local_addr()?).await
+        })
+    }
+}
