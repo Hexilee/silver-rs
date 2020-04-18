@@ -35,22 +35,7 @@ static REACTOR: Lazy<Reactor> = Lazy::new(|| {
         .name(THREAD_NAME.to_string())
         .spawn(move || {
             let mut events = Events::with_capacity(EVENTS);
-            loop {
-                if let Err(err) = poll.poll(&mut events, None) {
-                    log::error!("poll error: {}", err)
-                }
-                for event in events.iter() {
-                    let token = event.token();
-                    if let Some(entry) = reactor.entry(token.0) {
-                        if event.is_readable() {
-                            entry.reader.ready();
-                        }
-                        if event.is_writable() {
-                            entry.writer.ready();
-                        }
-                    }
-                }
-            }
+            reactor.poll(&mut poll, &mut events);
         })
         .expect(&format!("fail to spawn thread {}", THREAD_NAME));
     ret
@@ -86,6 +71,26 @@ impl Reactor {
             .write()
             .expect(ENTRIES_LOCK_POISONED)
             .remove(index)
+    }
+
+    fn poll(&self, poll: &mut Poll, events: &mut Events) {
+        loop {
+            if let Err(err) = poll.poll(events, None) {
+                log::error!("poll error: {}", err)
+            } else {
+                for event in events.iter() {
+                    let token = event.token();
+                    if let Some(entry) = self.entry(token.0) {
+                        if event.is_readable() {
+                            entry.reader.ready();
+                        }
+                        if event.is_writable() {
+                            entry.writer.ready();
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
