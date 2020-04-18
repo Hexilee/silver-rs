@@ -10,7 +10,7 @@ use std::io;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::RwLock;
 use std::task::Waker;
 use std::task::{self, Context};
 use std::thread;
@@ -25,60 +25,67 @@ static REACTOR: Lazy<Reactor> = Lazy::new(|| {
         Err(err) => panic!("fail to construct a mio::Poll: {}", err),
     };
     let registry = match poll.registry().try_clone() {
-        Ok(r) => r,
+        Ok(r) => Arc::new(r),
         Err(err) => panic!("fail to clone mio::Registry: {}", err),
     };
     let entries = Arc::new(RwLock::new(Slab::<Entry>::new()));
-    let entries_cloned = entries.clone();
+    let ret = Reactor { registry, entries };
+    let reactor = ret.clone();
     thread::Builder::new()
         .name(THREAD_NAME.to_string())
         .spawn(move || {
             let mut events = Events::with_capacity(EVENTS);
             loop {
                 if let Err(err) = poll.poll(&mut events, None) {
-                    panic!("poll error: {}", err)
+                    log::error!("poll error: {}", err)
                 }
-                let entries = entries_cloned.read().expect(ENTRIES_LOCK_POISONED);
                 for event in events.iter() {
                     let token = event.token();
-                    let entry = &entries[token.0];
-                    if event.is_readable() {
-                        entry.reader.ready();
-                    }
-                    if event.is_writable() {
-                        entry.writer.ready();
+                    if let Some(entry) = reactor.entry(token.0) {
+                        if event.is_readable() {
+                            entry.reader.ready();
+                        }
+                        if event.is_writable() {
+                            entry.writer.ready();
+                        }
                     }
                 }
             }
         })
         .expect(&format!("fail to spawn thread {}", THREAD_NAME));
-    Reactor { registry, entries }
+    ret
 });
 
+#[derive(Clone)]
 struct Reactor {
-    registry: Registry,
+    registry: Arc<Registry>,
     entries: Arc<RwLock<Slab<Entry>>>,
 }
 
 impl Reactor {
     #[inline]
-    fn entries(&self) -> RwLockReadGuard<Slab<Entry>> {
-        self.entries.read().expect(ENTRIES_LOCK_POISONED)
+    fn entry(&self, index: usize) -> Option<Entry> {
+        self.entries
+            .read()
+            .expect(ENTRIES_LOCK_POISONED)
+            .get(index)
+            .cloned()
     }
 
     #[inline]
-    fn entries_mut(&self) -> RwLockWriteGuard<Slab<Entry>> {
-        self.entries.write().expect(ENTRIES_LOCK_POISONED)
+    fn insert(&self, entry: Entry) -> usize {
+        self.entries
+            .write()
+            .expect(ENTRIES_LOCK_POISONED)
+            .insert(entry)
     }
 
     #[inline]
-    fn read(&self, token: Token, waker: Waker) {
-        self.entries()[token.0].reader.wakers.push(waker);
-    }
-
-    #[inline]
-    fn write(&self, token: Token, waker: Waker) {
-        self.entries()[token.0].writer.wakers.push(waker);
+    fn remove(&self, index: usize) -> Entry {
+        self.entries
+            .write()
+            .expect(ENTRIES_LOCK_POISONED)
+            .remove(index)
     }
 }
 
@@ -86,13 +93,15 @@ pub struct Watcher<S>
 where
     S: event::Source,
 {
-    pub(crate) token: Token,
+    pub(crate) entry: Entry,
+    pub(crate) index: usize,
     pub(crate) source: S,
 }
 
-struct Entry {
-    reader: Channel,
-    writer: Channel,
+#[derive(Clone)]
+pub struct Entry {
+    reader: Arc<Channel>,
+    writer: Arc<Channel>,
 }
 
 struct Channel {
@@ -129,9 +138,19 @@ impl Entry {
     #[inline]
     fn new() -> Self {
         Entry {
-            reader: Channel::new(),
-            writer: Channel::new(),
+            reader: Arc::new(Channel::new()),
+            writer: Arc::new(Channel::new()),
         }
+    }
+
+    #[inline]
+    fn read(&self, waker: Waker) {
+        self.reader.wakers.push(waker);
+    }
+
+    #[inline]
+    fn write(&self, waker: Waker) {
+        self.writer.wakers.push(waker);
     }
 }
 
@@ -140,13 +159,17 @@ where
     S: event::Source,
 {
     pub fn new(mut source: S) -> Self {
-        let index = REACTOR.entries_mut().insert(Entry::new());
-        let token = Token(index);
+        let entry = Entry::new();
+        let index = REACTOR.insert(entry.clone());
         REACTOR
             .registry
-            .register(&mut source, token, ALL_INTEREST)
+            .register(&mut source, Token(index), ALL_INTEREST)
             .expect("fail to register source");
-        Self { token, source }
+        Self {
+            entry,
+            index,
+            source,
+        }
     }
 
     #[inline]
@@ -157,9 +180,9 @@ where
     #[inline]
     pub async fn read_ready(&self) {
         poll_fn(|cx| {
-            let channel = &REACTOR.entries()[self.token.0].reader;
+            let channel = &*self.entry.reader;
             if !channel.is_ready() {
-                REACTOR.read(self.token, cx.waker().clone());
+                self.entry.read(cx.waker().clone());
             }
             if channel.is_ready() {
                 task::Poll::Ready(())
@@ -173,9 +196,9 @@ where
     #[inline]
     pub async fn write_ready(&self) {
         poll_fn(|cx| {
-            let channel = &REACTOR.entries()[self.token.0].writer;
+            let channel = &*self.entry.writer;
             if !channel.is_ready() {
-                REACTOR.write(self.token, cx.waker().clone());
+                self.entry.write(cx.waker().clone());
             }
             if channel.is_ready() {
                 task::Poll::Ready(())
@@ -197,7 +220,7 @@ where
     {
         let mut poll = may_block(f(&self.source));
         if poll.is_pending() {
-            REACTOR.read(self.token, cx.waker().clone());
+            self.entry.read(cx.waker().clone());
             poll = may_block(f(&self.source));
         }
         poll
@@ -214,7 +237,7 @@ where
     {
         let mut poll = may_block(f(&self.source));
         if poll.is_pending() {
-            REACTOR.write(self.token, cx.waker().clone());
+            self.entry.write(cx.waker().clone());
             poll = may_block(f(&self.source));
         }
         poll
@@ -230,7 +253,7 @@ where
             .registry
             .deregister(&mut self.source)
             .expect("fail to deregister source");
-        REACTOR.entries_mut().remove(self.token.0);
+        REACTOR.remove(self.index);
     }
 }
 
@@ -250,7 +273,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Watcher")
-            .field("token", &self.token)
+            .field("index", &self.index)
             .field("source", &self.source)
             .finish()
     }
