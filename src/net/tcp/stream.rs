@@ -369,12 +369,11 @@ mod unix {
 
 #[cfg(test)]
 mod tests {
-    use super::TcpStream;
-    use crate::task::block_on;
+    use crate::net::{TcpListener, TcpStream};
+    use crate::task::{block_on, spawn};
     use futures::{AsyncReadExt, AsyncWriteExt};
     use std::io;
-    use std::net::{Shutdown, SocketAddr, TcpListener};
-    use std::thread;
+    use std::net::{Shutdown, SocketAddr};
 
     const DATA: &[u8] = b"
     If you prick us, do we not bleed?
@@ -384,16 +383,16 @@ mod tests {
     ";
 
     fn start_server() -> io::Result<SocketAddr> {
-        use std::io::{Read, Write};
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
-        thread::spawn(move || {
+        spawn(async move {
             let mut data = [0; DATA.len()];
-            while let Ok((mut stream, addr)) = listener.accept() {
-                stream.read_exact(data.as_mut()).unwrap();
+            while let Ok((mut stream, addr)) = listener.accept().await {
+                stream.read_exact(&mut data).await?;
                 assert_eq!(DATA, data.as_ref());
-                stream.write_all(addr.to_string().as_bytes()).unwrap();
+                stream.write_all(addr.to_string().as_bytes()).await?;
             }
+            Ok::<_, io::Error>(())
         });
         Ok(addr)
     }
