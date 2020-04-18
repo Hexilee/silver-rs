@@ -369,11 +369,13 @@ mod unix {
 
 #[cfg(test)]
 mod tests {
-    use crate::net::{TcpListener, TcpStream};
-    use crate::task::{block_on, spawn};
+    use crate::net::TcpStream;
+    use crate::task::block_on;
     use futures::{AsyncReadExt, AsyncWriteExt};
     use std::io;
-    use std::net::{Shutdown, SocketAddr};
+    use std::net::{Shutdown, SocketAddr, TcpListener};
+    use std::thread;
+    use std::time::Duration;
 
     const DATA: &[u8] = b"
     If you prick us, do we not bleed?
@@ -383,17 +385,18 @@ mod tests {
     ";
 
     fn start_server() -> io::Result<SocketAddr> {
+        use std::io::{Read, Write};
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
-        spawn(async move {
+        thread::spawn(move || {
             let mut data = [0; DATA.len()];
-            while let Ok((mut stream, addr)) = listener.accept().await {
-                stream.read_exact(&mut data).await?;
+            while let Ok((mut stream, addr)) = listener.accept() {
+                stream.read_exact(&mut data).unwrap();
                 assert_eq!(DATA, data.as_ref());
-                stream.write_all(addr.to_string().as_bytes()).await?;
+                stream.write_all(addr.to_string().as_bytes()).unwrap();
             }
-            Ok::<_, io::Error>(())
         });
+        thread::sleep(Duration::from_secs(1));
         Ok(addr)
     }
 

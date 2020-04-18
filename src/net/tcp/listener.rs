@@ -215,10 +215,11 @@ mod unix {
 #[cfg(test)]
 mod tests {
     use super::{TcpListener, TcpStream};
-    use crate::task::{block_on, spawn};
+    use crate::task::{block_on, sleep, spawn};
     use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
     use std::io;
     use std::net::SocketAddr;
+    use std::time::Duration;
 
     const DATA: &[u8] = b"
     If you prick us, do we not bleed?
@@ -228,6 +229,7 @@ mod tests {
     ";
 
     async fn connect(server_addr: SocketAddr) -> io::Result<()> {
+        sleep(Duration::from_secs(1)).await;
         let mut client = TcpStream::connect(server_addr).await?;
         client.write_all(DATA).await?;
         let mut recv_data = String::new();
