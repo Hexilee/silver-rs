@@ -26,7 +26,7 @@ use std::sync::Arc;
 /// use tio::net::UnixStream;
 /// use futures::prelude::*;
 ///
-/// let mut stream = UnixStream::connect("/tmp/socket")?;
+/// let mut stream = UnixStream::connect("/tmp/socket").await?;
 /// stream.write_all(b"hello world").await?;
 ///
 /// let mut response = Vec::new();
@@ -47,14 +47,18 @@ impl UnixStream {
     /// #
     /// use tio::net::UnixStream;
     ///
-    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// let stream = UnixStream::connect("/tmp/socket").await?;
     /// #
     /// # Ok(()) }) }
     /// ```
-    pub fn connect<P: AsRef<Path>>(path: P) -> io::Result<UnixStream> {
-        let path = path.as_ref().to_owned();
-        let mio_stream = net::UnixStream::connect(path)?;
-        Ok(UnixStream(Arc::new(Watcher::new(mio_stream))))
+    pub async fn connect<P: AsRef<Path>>(path: P) -> io::Result<UnixStream> {
+        let watcher = Watcher::new(net::UnixStream::connect(path)?);
+        watcher.write_ready().await;
+        let inner = Arc::new(watcher);
+        match inner.take_error() {
+            Ok(None) => Ok(Self(inner)),
+            Ok(Some(err)) | Err(err) => Err(err),
+        }
     }
 
     /// Creates an unnamed pair of connected sockets.
@@ -88,7 +92,7 @@ impl UnixStream {
     /// #
     /// use tio::net::UnixStream;
     ///
-    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// let stream = UnixStream::connect("/tmp/socket").await?;
     /// let addr = stream.local_addr()?;
     /// #
     /// # Ok(()) }) }
@@ -106,7 +110,7 @@ impl UnixStream {
     /// #
     /// use tio::net::UnixStream;
     ///
-    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// let stream = UnixStream::connect("/tmp/socket").await?;
     /// let peer = stream.peer_addr()?;
     /// #
     /// # Ok(()) }) }
@@ -128,7 +132,7 @@ impl UnixStream {
     /// use tio::net::UnixStream;
     /// use std::net::Shutdown;
     ///
-    /// let stream = UnixStream::connect("/tmp/socket")?;
+    /// let stream = UnixStream::connect("/tmp/socket").await?;
     /// stream.shutdown(Shutdown::Both)?;
     /// #
     /// # Ok(()) }) }
@@ -196,35 +200,6 @@ impl AsyncWrite for UnixStream {
     }
 }
 
-impl Read for UnixStream {
-    #[inline]
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        (&mut &**self.0).read(buf)
-    }
-
-    #[inline]
-    fn read_vectored(&mut self, bufs: &mut [IoSliceMut<'_>]) -> io::Result<usize> {
-        (&mut &**self.0).read_vectored(bufs)
-    }
-}
-
-impl Write for UnixStream {
-    #[inline]
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        (&mut &**self.0).write(buf)
-    }
-
-    #[inline]
-    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize> {
-        (&mut &**self.0).write_vectored(bufs)
-    }
-
-    #[inline]
-    fn flush(&mut self) -> io::Result<()> {
-        (&mut &**self.0).flush()
-    }
-}
-
 impl AsRawFd for UnixStream {
     fn as_raw_fd(&self) -> RawFd {
         self.0.as_raw_fd()
@@ -241,5 +216,100 @@ impl FromRawFd for UnixStream {
     unsafe fn from_raw_fd(fd: RawFd) -> UnixStream {
         let std_stream: StdStream = FromRawFd::from_raw_fd(fd);
         std_stream.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::net::uds::{UnixListener, UnixStream};
+    use crate::task::block_on;
+    use futures::{AsyncReadExt, AsyncWriteExt};
+    use std::io;
+    use std::net::Shutdown;
+    use std::path::PathBuf;
+    use std::time::Duration;
+    use tempfile::NamedTempFile;
+
+    const DATA: &[u8] = b"
+    If you prick us, do we not bleed?
+    If you tickle us, do we not laugh?
+    If you poison us, do we not die?
+    And if you wrong us, shall we not revenge?
+    ";
+
+    fn random_path() -> io::Result<PathBuf> {
+        Ok(NamedTempFile::new()?.path().to_path_buf())
+    }
+
+    fn start_server() -> io::Result<PathBuf> {
+        use std::io::{Read, Write};
+        use std::thread::{sleep, spawn};
+
+        let path_buf = random_path()?;
+        let listener = std::os::unix::net::UnixListener::bind(path_buf.as_path())?;
+        spawn(move || {
+            let mut data = [0; DATA.len()];
+            while let Ok((mut stream, addr)) = listener.accept() {
+                assert!(addr.is_unnamed());
+                stream.read_exact(&mut data).unwrap();
+                assert_eq!(DATA, data.as_ref());
+                stream.write_all(&data).unwrap();
+            }
+        });
+        sleep(Duration::from_secs(1));
+        Ok(path_buf)
+    }
+
+    #[test]
+    fn stream() -> io::Result<()> {
+        block_on(async {
+            let addr = start_server()?;
+            let mut stream = UnixStream::connect(addr).await?;
+            assert!(stream.local_addr()?.is_unnamed());
+            stream.write_all(DATA).await?;
+
+            let mut data = Vec::new();
+            stream.read_to_end(&mut data).await?;
+            Ok(assert_eq!(DATA, data.as_slice()))
+        })
+    }
+
+    #[test]
+    fn from_std() -> io::Result<()> {
+        block_on(async move {
+            let addr = start_server()?;
+            let raw_stream = std::os::unix::net::UnixStream::connect(addr)?;
+            let mut stream = UnixStream::from(raw_stream);
+            assert!(stream.local_addr()?.is_unnamed());
+            stream.write_all(DATA).await?;
+
+            let mut data = Vec::new();
+            stream.read_to_end(&mut data).await?;
+            Ok(assert_eq!(DATA, data.as_slice()))
+        })
+    }
+
+    #[test]
+    fn peer_addr() -> io::Result<()> {
+        block_on(async {
+            let path_buf = random_path()?;
+            let path = path_buf.as_path();
+            let _listener = UnixListener::bind(path)?;
+            let stream = UnixStream::connect(path).await?;
+            let peer_addr = stream.peer_addr()?;
+            Ok(assert_eq!(Some(path), peer_addr.as_pathname()))
+        })
+    }
+
+    #[test]
+    fn shutdown() -> io::Result<()> {
+        block_on(async {
+            let path_buf = random_path()?;
+            let path = path_buf.as_path();
+            let _listener = UnixListener::bind(path.to_path_buf())?;
+            let mut stream = UnixStream::connect(path).await?;
+            stream.shutdown(Shutdown::Write)?;
+            Ok(assert!(stream.write_all(DATA).await.is_err()))
+        })
     }
 }

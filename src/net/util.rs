@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports)]
+
 use crate::task::{spawn_blocking, JoinHandle};
 use std::future::Future;
 use std::io::{self, ErrorKind::*, Result};

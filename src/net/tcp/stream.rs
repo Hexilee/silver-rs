@@ -382,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn stream_async() -> io::Result<()> {
+    fn stream() -> io::Result<()> {
         block_on(async {
             let addr = start_server()?;
             let mut stream = TcpStream::connect(addr).await?;
