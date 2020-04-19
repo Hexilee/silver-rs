@@ -8,7 +8,7 @@
 //!
 //! * [`TcpListener`] and [`TcpStream`] provide functionality for communication over TCP
 //! * [`UdpSocket`] provides functionality for communication over UDP
-//! * [`Resolver`] provides functionality for asynchronously resolving socket address
+//! * [`Resolver`] provides functionality to asynchronously resolve socket address
 //!
 //!
 //! [`TcpListener`]: struct.TcpListener.html

@@ -211,7 +211,7 @@ impl UdpSocket {
     /// use tio::net::UdpSocket;
     ///
     /// let socket = UdpSocket::bind("127.0.0.1:0")?;
-    /// socket.connect("127.0.0.1:8080").await?;
+    /// socket.connect("127.0.0.1:8080")?;
     /// #
     /// # Ok(()) }) }
     /// ```
@@ -222,7 +222,7 @@ impl UdpSocket {
     /// You can resolve addrs asynchronously by [`Resolver`].
     ///
     /// [`Resolver`]: trait.Resolver.html
-    pub async fn connect<A: ToSocketAddrs>(&self, addrs: A) -> io::Result<()> {
+    pub fn connect<A: ToSocketAddrs>(&self, addrs: A) -> io::Result<()> {
         let mut error = None;
         for addr in addrs.to_socket_addrs()? {
             match self.0.connect(addr) {
@@ -248,7 +248,7 @@ impl UdpSocket {
     /// use tio::net::UdpSocket;
     ///
     /// let socket = UdpSocket::bind("127.0.0.1:34254")?;
-    /// socket.connect("127.0.0.1:8080").await?;
+    /// socket.connect("127.0.0.1:8080")?;
     /// let bytes = socket.send(b"Hi there!").await?;
     ///
     /// println!("Sent {} bytes", bytes);
@@ -272,7 +272,7 @@ impl UdpSocket {
     /// use tio::net::UdpSocket;
     ///
     /// let socket = UdpSocket::bind("127.0.0.1:0")?;
-    /// socket.connect("127.0.0.1:8080").await?;
+    /// socket.connect("127.0.0.1:8080")?;
     ///
     /// let mut buf = vec![0; 1024];
     /// let n = socket.recv(&mut buf).await?;
@@ -488,5 +488,50 @@ impl From<StdSocket> for UdpSocket {
     fn from(socket: StdSocket) -> Self {
         let watcher = Watcher::new(net::UdpSocket::from_std(socket));
         Self(Arc::new(watcher))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UdpSocket;
+    use crate::task::{block_on, spawn};
+    use std::io;
+    use std::net::SocketAddr;
+
+    const DATA: &[u8] = b"
+    If you prick us, do we not bleed?
+    If you tickle us, do we not laugh?
+    If you poison us, do we not die?
+    And if you wrong us, shall we not revenge?
+    ";
+
+    fn one() -> io::Result<UdpSocket> {
+        UdpSocket::bind("127.0.0.1:0")
+    }
+
+    fn server() -> io::Result<SocketAddr> {
+        let socket = one()?;
+        let addr = socket.local_addr()?;
+        spawn(async move {
+            let mut data = [0; 1024];
+            while let Ok((size, addr)) = socket.recv_from(&mut data).await {
+                assert_eq!(DATA, &data[..size]);
+                socket.send_to(&data[..size], addr).await.unwrap();
+            }
+        });
+        Ok(addr)
+    }
+
+    #[test]
+    fn basic() -> io::Result<()> {
+        block_on(async {
+            let mut data = [0; 1024];
+            let socket = one()?;
+            let server_addr = server()?;
+            socket.connect(server_addr)?;
+            socket.send(DATA).await?;
+            let size = socket.recv(&mut data).await?;
+            Ok(assert_eq!(DATA, &data[..size]))
+        })
     }
 }
