@@ -47,6 +47,3 @@ jobs:
         with:
           command: test
           args: --all --features "full" --no-fail-fast
-        env:
-          RUST_BACKTRACE: 1
-

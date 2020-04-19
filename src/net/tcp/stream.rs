@@ -348,25 +348,6 @@ impl AsyncWrite for TcpStream {
     }
 }
 
-#[cfg(unix)]
-mod unix {
-    use super::{StdStream, TcpStream};
-    use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
-
-    impl AsRawFd for TcpStream {
-        fn as_raw_fd(&self) -> RawFd {
-            self.0.as_raw_fd()
-        }
-    }
-
-    impl FromRawFd for TcpStream {
-        unsafe fn from_raw_fd(fd: RawFd) -> TcpStream {
-            let socket = StdStream::from_raw_fd(fd);
-            socket.into()
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::net::TcpStream;
@@ -420,24 +401,6 @@ mod tests {
         let raw_stream = std::net::TcpStream::connect(addr)?;
         block_on(async move {
             let mut stream = TcpStream::from(raw_stream);
-            stream.write_all(DATA).await?;
-
-            let mut recv_data = String::new();
-            stream.read_to_string(&mut recv_data).await?;
-            let local_addr: SocketAddr = recv_data.parse().unwrap();
-            Ok(assert_eq!(local_addr, stream.local_addr()?))
-        })
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn from_raw() -> io::Result<()> {
-        use std::os::unix::io::{AsRawFd, FromRawFd};
-        let addr = start_server()?;
-        block_on(async move {
-            let stream = TcpStream::connect(addr).await?;
-            let fd = stream.as_raw_fd();
-            let mut stream = unsafe { TcpStream::from_raw_fd(fd) };
             stream.write_all(DATA).await?;
 
             let mut recv_data = String::new();
