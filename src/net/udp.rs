@@ -111,6 +111,7 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         self.0.local_addr()
     }
@@ -148,6 +149,7 @@ impl UdpSocket {
     /// You can resolve addrs asynchronously by [`Resolver`].
     ///
     /// [`Resolver`]: trait.Resolver.html
+    #[inline]
     pub async fn send_to<A: ToSocketAddrs>(
         &self,
         buf: &[u8],
@@ -185,6 +187,7 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
         future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.recv_from(buf)))
             .await
@@ -252,6 +255,7 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub async fn send(&self, buf: &[u8]) -> io::Result<usize> {
         future::poll_fn(|cx| self.0.poll_write_with(cx, |inner| inner.send(buf))).await
     }
@@ -276,6 +280,7 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
         future::poll_fn(|cx| self.0.poll_read_with(cx, |inner| inner.recv(buf))).await
     }
@@ -285,6 +290,7 @@ impl UdpSocket {
     /// For more information about this option, see [`set_broadcast`].
     ///
     /// [`set_broadcast`]: #method.set_broadcast
+    #[inline]
     pub fn broadcast(&self) -> io::Result<bool> {
         self.0.broadcast()
     }
@@ -292,6 +298,7 @@ impl UdpSocket {
     /// Sets the value of the `SO_BROADCAST` option for this socket.
     ///
     /// When enabled, this socket is allowed to send packets to a broadcast address.
+    #[inline]
     pub fn set_broadcast(&self, on: bool) -> io::Result<()> {
         self.0.set_broadcast(on)
     }
@@ -301,6 +308,7 @@ impl UdpSocket {
     /// For more information about this option, see [`set_multicast_loop_v4`].
     ///
     /// [`set_multicast_loop_v4`]: #method.set_multicast_loop_v4
+    #[inline]
     pub fn multicast_loop_v4(&self) -> io::Result<bool> {
         self.0.multicast_loop_v4()
     }
@@ -312,6 +320,7 @@ impl UdpSocket {
     /// # Note
     ///
     /// This may not have any affect on IPv6 sockets.
+    #[inline]
     pub fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()> {
         self.0.set_multicast_loop_v4(on)
     }
@@ -321,6 +330,7 @@ impl UdpSocket {
     /// For more information about this option, see [`set_multicast_ttl_v4`].
     ///
     /// [`set_multicast_ttl_v4`]: #method.set_multicast_ttl_v4
+    #[inline]
     pub fn multicast_ttl_v4(&self) -> io::Result<u32> {
         self.0.multicast_ttl_v4()
     }
@@ -334,6 +344,7 @@ impl UdpSocket {
     /// # Note
     ///
     /// This may not have any affect on IPv6 sockets.
+    #[inline]
     pub fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()> {
         self.0.set_multicast_ttl_v4(ttl)
     }
@@ -343,6 +354,7 @@ impl UdpSocket {
     /// For more information about this option, see [`set_multicast_loop_v6`].
     ///
     /// [`set_multicast_loop_v6`]: #method.set_multicast_loop_v6
+    #[inline]
     pub fn multicast_loop_v6(&self) -> io::Result<bool> {
         self.0.multicast_loop_v6()
     }
@@ -354,6 +366,7 @@ impl UdpSocket {
     /// # Note
     ///
     /// This may not have any affect on IPv4 sockets.
+    #[inline]
     pub fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()> {
         self.0.set_multicast_loop_v6(on)
     }
@@ -363,6 +376,7 @@ impl UdpSocket {
     /// For more information about this option, see [`set_ttl`].
     ///
     /// [`set_ttl`]: #method.set_ttl
+    #[inline]
     pub fn ttl(&self) -> io::Result<u32> {
         self.0.ttl()
     }
@@ -371,6 +385,7 @@ impl UdpSocket {
     ///
     /// This value sets the time-to-live field that is used in every packet sent
     /// from this socket.
+    #[inline]
     pub fn set_ttl(&self, ttl: u32) -> io::Result<()> {
         self.0.set_ttl(ttl)
     }
@@ -399,6 +414,7 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn join_multicast_v4(
         &self,
         multiaddr: Ipv4Addr,
@@ -430,6 +446,7 @@ impl UdpSocket {
     /// #
     /// # Ok(()) }) }
     /// ```
+    #[inline]
     pub fn join_multicast_v6(
         &self,
         multiaddr: &Ipv6Addr,
@@ -443,6 +460,7 @@ impl UdpSocket {
     /// For more information about this option, see [`join_multicast_v4`].
     ///
     /// [`join_multicast_v4`]: #method.join_multicast_v4
+    #[inline]
     pub fn leave_multicast_v4(
         &self,
         multiaddr: Ipv4Addr,
@@ -456,6 +474,7 @@ impl UdpSocket {
     /// For more information about this option, see [`join_multicast_v6`].
     ///
     /// [`join_multicast_v6`]: #method.join_multicast_v6
+    #[inline]
     pub fn leave_multicast_v6(
         &self,
         multiaddr: &Ipv6Addr,
@@ -469,24 +488,5 @@ impl From<StdSocket> for UdpSocket {
     fn from(socket: StdSocket) -> Self {
         let watcher = Watcher::new(net::UdpSocket::from_std(socket));
         Self(Arc::new(watcher))
-    }
-}
-
-#[cfg(unix)]
-mod unix {
-    use super::{StdSocket, UdpSocket};
-    use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
-
-    impl AsRawFd for UdpSocket {
-        fn as_raw_fd(&self) -> RawFd {
-            self.0.as_raw_fd()
-        }
-    }
-
-    impl FromRawFd for UdpSocket {
-        unsafe fn from_raw_fd(fd: RawFd) -> UdpSocket {
-            let socket = StdSocket::from_raw_fd(fd);
-            socket.into()
-        }
     }
 }
