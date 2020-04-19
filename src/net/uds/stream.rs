@@ -232,7 +232,7 @@ impl FromRawFd for UnixStream {
 
 #[cfg(test)]
 mod tests {
-    use crate::net::uds::{UnixListener, UnixStream};
+    use super::UnixStream;
     use crate::task::block_on;
     use futures::{AsyncReadExt, AsyncWriteExt};
     use std::io;
@@ -345,7 +345,7 @@ mod tests {
         block_on(async {
             let path_buf = random_path()?;
             let path = path_buf.as_path();
-            let _listener = UnixListener::bind(path)?;
+            let _listener = std::os::unix::net::UnixListener::bind(path)?;
             let stream = UnixStream::connect(path).await?;
             let peer_addr = stream.peer_addr()?;
             Ok(assert_eq!(Some(path), peer_addr.as_pathname()))
@@ -357,7 +357,7 @@ mod tests {
         block_on(async {
             let path_buf = random_path()?;
             let path = path_buf.as_path();
-            let _listener = UnixListener::bind(path.to_path_buf())?;
+            let _listener = std::os::unix::net::UnixListener::bind(path.to_path_buf())?;
             let mut stream = UnixStream::connect(path).await?;
             stream.shutdown(Shutdown::Write)?;
             Ok(assert!(stream.write_all(DATA).await.is_err()))
