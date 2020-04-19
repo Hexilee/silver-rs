@@ -226,6 +226,7 @@ mod tests {
     use futures::{AsyncReadExt, AsyncWriteExt};
     use std::io;
     use std::net::Shutdown;
+    use std::os::unix::io::{AsRawFd, FromRawFd};
     use std::path::PathBuf;
     use std::time::Duration;
     use tempfile::NamedTempFile;
@@ -285,6 +286,41 @@ mod tests {
 
             let mut data = Vec::new();
             stream.read_to_end(&mut data).await?;
+            Ok(assert_eq!(DATA, data.as_slice()))
+        })
+    }
+
+    #[test]
+    fn from_raw_fd() -> io::Result<()> {
+        block_on(async move {
+            let addr = start_server()?;
+            let raw_stream = std::os::unix::net::UnixStream::connect(addr)?;
+            let raw_fd = raw_stream.as_raw_fd();
+            let mut stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
+            assert!(stream.local_addr()?.is_unnamed());
+            stream.write_all(DATA).await?;
+
+            let mut data = Vec::new();
+            stream.read_to_end(&mut data).await?;
+            Ok(assert_eq!(DATA, data.as_slice()))
+        })
+    }
+
+    #[test]
+    fn as_raw_fd() -> io::Result<()> {
+        use std::io::{Read, Write};
+        block_on(async move {
+            let addr = start_server()?;
+            let stream = UnixStream::connect(addr).await?;
+            let raw_fd = stream.as_raw_fd();
+            let mut raw_stream =
+                unsafe { std::os::unix::net::UnixStream::from_raw_fd(raw_fd) };
+            raw_stream.set_nonblocking(false)?;
+            assert!(raw_stream.local_addr()?.is_unnamed());
+            raw_stream.write_all(DATA)?;
+
+            let mut data = Vec::new();
+            raw_stream.read_to_end(&mut data)?;
             Ok(assert_eq!(DATA, data.as_slice()))
         })
     }
