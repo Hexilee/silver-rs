@@ -534,4 +534,56 @@ mod tests {
             Ok(assert_eq!(DATA, &data[..size]))
         })
     }
+
+    #[test]
+    fn from_std() -> io::Result<()> {
+        block_on(async {
+            let mut data = [0; 1024];
+            let server_addr = server()?;
+            let raw_socket = std::net::UdpSocket::bind("127.0.0.1:0")?;
+            raw_socket.connect(server_addr)?;
+            let socket: UdpSocket = raw_socket.into();
+            socket.send(DATA).await?;
+            let size = socket.recv(&mut data).await?;
+            Ok(assert_eq!(DATA, &data[..size]))
+        })
+    }
+
+    #[test]
+    fn broadcast() -> io::Result<()> {
+        let socket = one()?;
+        let broadcast = socket.broadcast()?;
+        socket.set_broadcast(!broadcast)?;
+        Ok(assert_eq!(!broadcast, socket.broadcast()?))
+    }
+
+    #[test]
+    fn multicast_loop_v4() -> io::Result<()> {
+        let socket = one()?;
+        let multicast_loop_v4 = socket.multicast_loop_v4()?;
+        socket.set_multicast_loop_v4(!multicast_loop_v4)?;
+        Ok(assert_eq!(!multicast_loop_v4, socket.multicast_loop_v4()?))
+    }
+
+    #[test]
+    fn multicast_loop_v6() -> io::Result<()> {
+        let socket = UdpSocket::bind("[::1]:0")?;
+        let multicast_loop_v6 = socket.multicast_loop_v6()?;
+        socket.set_multicast_loop_v6(!multicast_loop_v6)?;
+        Ok(assert_eq!(!multicast_loop_v6, socket.multicast_loop_v6()?))
+    }
+
+    #[test]
+    fn multicast_ttl_v4() -> io::Result<()> {
+        let socket = one()?;
+        socket.set_multicast_ttl_v4(100)?;
+        Ok(assert_eq!(100, socket.multicast_ttl_v4()?))
+    }
+
+    #[test]
+    fn ttl() -> io::Result<()> {
+        let socket = one()?;
+        socket.set_ttl(100)?;
+        Ok(assert_eq!(100, socket.ttl()?))
+    }
 }
