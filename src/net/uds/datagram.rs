@@ -4,7 +4,7 @@ use futures::future;
 use mio::net;
 use std::io;
 use std::net::Shutdown;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::os::unix::net::UnixDatagram as StdDatagram;
 use std::path::Path;
 use std::sync::Arc;
@@ -289,6 +289,11 @@ impl UnixDatagram {
 
 impl From<StdDatagram> for UnixDatagram {
     /// Converts a `std::os::unix::net::UnixDatagram` into its asynchronous equivalent.
+    ///
+    /// # Notes
+    ///
+    /// The caller is responsible for ensuring that the listener is in
+    /// non-blocking mode.
     fn from(datagram: StdDatagram) -> UnixDatagram {
         let mio_datagram = net::UnixDatagram::from_std(datagram);
         Self::new(mio_datagram)
@@ -298,12 +303,5 @@ impl From<StdDatagram> for UnixDatagram {
 impl AsRawFd for UnixDatagram {
     fn as_raw_fd(&self) -> RawFd {
         self.0.as_raw_fd()
-    }
-}
-
-impl FromRawFd for UnixDatagram {
-    unsafe fn from_raw_fd(fd: RawFd) -> UnixDatagram {
-        let datagram = StdDatagram::from_raw_fd(fd);
-        datagram.into()
     }
 }

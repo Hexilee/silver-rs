@@ -5,7 +5,7 @@ use futures::{AsyncRead, AsyncWrite};
 use mio::net;
 use std::io::{self, IoSlice, IoSliceMut, Read, Write};
 use std::net::Shutdown;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream as StdStream;
 use std::path::Path;
 use std::pin::Pin;
@@ -217,19 +217,6 @@ impl AsRawFd for UnixStream {
     }
 }
 
-impl FromRawFd for UnixStream {
-    /// Converts a `RawFd` to a `UnixStream`.
-    ///
-    /// # Notes
-    ///
-    /// The caller is responsible for ensuring that the socket is in
-    /// non-blocking mode.
-    unsafe fn from_raw_fd(fd: RawFd) -> UnixStream {
-        let std_stream: StdStream = FromRawFd::from_raw_fd(fd);
-        std_stream.into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::UnixStream;
@@ -293,23 +280,6 @@ mod tests {
             let raw_stream = std::os::unix::net::UnixStream::connect(addr)?;
             raw_stream.set_nonblocking(true)?;
             let mut stream = UnixStream::from(raw_stream);
-            assert!(stream.local_addr()?.is_unnamed());
-            stream.write_all(DATA).await?;
-
-            let mut data = Vec::new();
-            stream.read_to_end(&mut data).await?;
-            Ok(assert_eq!(DATA, data.as_slice()))
-        })
-    }
-
-    #[test]
-    fn from_raw_fd() -> io::Result<()> {
-        block_on(async move {
-            let addr = start_server()?;
-            let raw_stream = std::os::unix::net::UnixStream::connect(addr)?;
-            raw_stream.set_nonblocking(true)?;
-            let raw_fd = raw_stream.as_raw_fd();
-            let mut stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
             assert!(stream.local_addr()?.is_unnamed());
             stream.write_all(DATA).await?;
 

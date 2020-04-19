@@ -4,7 +4,7 @@ use futures::task::{Context, Poll};
 use futures::{future, Stream};
 use mio::net;
 use std::io;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::os::unix::net::UnixListener as StdListener;
 use std::path::Path;
 use std::pin::Pin;
@@ -170,19 +170,6 @@ impl AsRawFd for UnixListener {
     }
 }
 
-impl FromRawFd for UnixListener {
-    /// Converts a `RawFd` to a `UnixListener`.
-    ///
-    /// # Notes
-    ///
-    /// The caller is responsible for ensuring that the listener is in
-    /// non-blocking mode.
-    unsafe fn from_raw_fd(fd: RawFd) -> UnixListener {
-        let listener = StdListener::from_raw_fd(fd);
-        listener.into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::net::uds::{UnixListener, UnixStream};
@@ -242,28 +229,6 @@ mod tests {
             raw_listener.set_nonblocking(true)?;
             spawn(async move {
                 let listener = UnixListener::from(raw_listener);
-                let mut data = [0; DATA.len()];
-                while let Ok((mut stream, addr)) = listener.accept().await {
-                    assert!(addr.is_unnamed());
-                    stream.read_exact(&mut data).await.unwrap();
-                    assert_eq!(DATA, data.as_ref());
-                    stream.write_all(&data).await.unwrap();
-                }
-            });
-            connect(path_buf).await
-        })
-    }
-
-    #[test]
-    fn from_raw_fd() -> io::Result<()> {
-        block_on(async {
-            let path_buf = random_path()?;
-            let raw_listener =
-                std::os::unix::net::UnixListener::bind(path_buf.as_path())?;
-            raw_listener.set_nonblocking(true)?;
-            let raw_fd = raw_listener.as_raw_fd();
-            spawn(async move {
-                let listener = unsafe { UnixListener::from_raw_fd(raw_fd) };
                 let mut data = [0; DATA.len()];
                 while let Ok((mut stream, addr)) = listener.accept().await {
                     assert!(addr.is_unnamed());
