@@ -143,6 +143,12 @@ impl UnixStream {
 }
 
 impl From<StdStream> for UnixStream {
+    /// Creates a new `UnixStream` from a standard `net::UnixStream`.
+    ///
+    /// # Notes
+    ///
+    /// The caller is responsible for ensuring that the socket is in
+    /// non-blocking mode.
     fn from(stream: StdStream) -> Self {
         let watcher = Watcher::new(net::UnixStream::from_std(stream));
         Self(Arc::new(watcher))
@@ -201,6 +207,11 @@ impl AsyncWrite for UnixStream {
 }
 
 impl AsRawFd for UnixStream {
+    /// Share raw fd of `UnixStream`.
+    ///
+    /// # Notes
+    ///
+    /// The caller is responsible for never closing this fd.
     fn as_raw_fd(&self) -> RawFd {
         self.0.as_raw_fd()
     }
@@ -280,6 +291,7 @@ mod tests {
         block_on(async move {
             let addr = start_server()?;
             let raw_stream = std::os::unix::net::UnixStream::connect(addr)?;
+            raw_stream.set_nonblocking(true)?;
             let mut stream = UnixStream::from(raw_stream);
             assert!(stream.local_addr()?.is_unnamed());
             stream.write_all(DATA).await?;
@@ -295,6 +307,7 @@ mod tests {
         block_on(async move {
             let addr = start_server()?;
             let raw_stream = std::os::unix::net::UnixStream::connect(addr)?;
+            raw_stream.set_nonblocking(true)?;
             let raw_fd = raw_stream.as_raw_fd();
             let mut stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
             assert!(stream.local_addr()?.is_unnamed());
@@ -321,6 +334,8 @@ mod tests {
 
             let mut data = Vec::new();
             raw_stream.read_to_end(&mut data)?;
+
+            drop(stream); // drop stream before raw_stream is dropped and fd is closed
             Ok(assert_eq!(DATA, data.as_slice()))
         })
     }
