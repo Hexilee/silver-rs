@@ -220,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn listener_accept() -> io::Result<()> {
+    fn accept() -> io::Result<()> {
         block_on(async {
             let listener = TcpListener::bind("127.0.0.1:0")?;
             let server_addr = listener.local_addr()?;
@@ -236,7 +236,24 @@ mod tests {
     }
 
     #[test]
-    fn listener_stream() -> io::Result<()> {
+    fn from_std() -> io::Result<()> {
+        block_on(async {
+            let listener: TcpListener =
+                std::net::TcpListener::bind("127.0.0.1:0")?.into();
+            let server_addr = listener.local_addr()?;
+            spawn(async move {
+                let (mut stream, addr) = listener.accept().await?;
+                stream.write_all(addr.to_string().as_bytes()).await?;
+                let mut data = [0; DATA.len()];
+                stream.read_exact(&mut data).await?;
+                Ok::<_, io::Error>(assert_eq!(DATA, data.as_ref()))
+            });
+            connect(server_addr).await
+        })
+    }
+
+    #[test]
+    fn stream() -> io::Result<()> {
         block_on(async {
             let mut listener = TcpListener::bind("127.0.0.1:0")?;
             let server_addr = listener.local_addr()?;
