@@ -363,4 +363,22 @@ mod tests {
             Ok(assert!(stream.write_all(DATA).await.is_err()))
         })
     }
+
+    #[test]
+    fn pair() -> io::Result<()> {
+        use crate::task::spawn;
+        block_on(async {
+            let (mut s1, mut s2) = UnixStream::pair()?;
+            spawn(async move {
+                let mut data = [0; DATA.len()];
+                s2.read_exact(&mut data).await.unwrap();
+                assert_eq!(DATA, data.as_ref());
+                s2.write_all(&data).await.unwrap();
+            });
+            s1.write_all(DATA).await?;
+            let mut data = Vec::new();
+            s1.read_to_end(&mut data).await?;
+            Ok(assert_eq!(DATA, data.as_slice()))
+        })
+    }
 }
