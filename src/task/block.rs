@@ -54,14 +54,11 @@ impl Drop for RunningGuard {
 ///
 /// ```no_run
 /// use tio::task;
-///
-/// fn main() {
-///     let val = task::block_on(async {
-///         println!("Hello, world!");
-///         1
-///     });
-///     assert_eq!(1, val);
-/// }
+/// let val = task::block_on(async {
+///     println!("Hello, world!");
+///     1
+/// });
+/// assert_eq!(1, val);
 /// ```
 pub fn block_on<F>(fut: F) -> F::Output
 where

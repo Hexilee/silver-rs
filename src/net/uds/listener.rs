@@ -199,7 +199,8 @@ mod tests {
 
         let mut data = Vec::new();
         stream.read_to_end(&mut data).await?;
-        Ok(assert_eq!(DATA, data.as_slice()))
+        assert_eq!(DATA, data.as_slice());
+        Ok(())
     }
 
     #[test]
@@ -286,9 +287,10 @@ mod tests {
     fn local_addr() -> io::Result<()> {
         let path_buf = random_path()?;
         let listener = UnixListener::bind(path_buf.as_path())?;
-        Ok(assert_eq!(
+        assert_eq!(
             Some(path_buf.as_path()),
             listener.local_addr()?.as_pathname()
-        ))
+        );
+        Ok(())
     }
 }

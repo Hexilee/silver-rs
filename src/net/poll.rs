@@ -1,6 +1,6 @@
 use super::util::{may_block, ENTRIES_LOCK_POISONED};
 use crossbeam_queue::SegQueue;
-use futures::future::{join, poll_fn};
+use futures::future::poll_fn;
 use mio::event;
 use mio::{Events, Interest, Poll, Registry, Token};
 use once_cell::sync::Lazy;
@@ -20,14 +20,13 @@ const THREAD_NAME: &str = "tio/poll";
 const ALL_INTEREST: Interest = Interest::READABLE.add(Interest::WRITABLE);
 
 static REACTOR: Lazy<Reactor> = Lazy::new(|| {
-    let mut poll = match Poll::new() {
-        Ok(p) => p,
-        Err(err) => panic!("fail to construct a mio::Poll: {}", err),
-    };
-    let registry = match poll.registry().try_clone() {
-        Ok(r) => Arc::new(r),
-        Err(err) => panic!("fail to clone mio::Registry: {}", err),
-    };
+    let mut poll = Poll::new()
+        .unwrap_or_else(|err| panic!("fail to construct a mio::Poll: {}", err));
+    let registry = poll
+        .registry()
+        .try_clone()
+        .map(Arc::new)
+        .unwrap_or_else(|err| panic!("fail to clone mio::Registry: {}", err));
     let entries = Arc::new(RwLock::new(Slab::<Entry>::new()));
     let ret = Reactor { registry, entries };
     let reactor = ret.clone();
@@ -37,7 +36,7 @@ static REACTOR: Lazy<Reactor> = Lazy::new(|| {
             let mut events = Events::with_capacity(EVENTS);
             reactor.poll(&mut poll, &mut events);
         })
-        .expect(&format!("fail to spawn thread {}", THREAD_NAME));
+        .unwrap_or_else(|err| panic!("fail to spawn thread {}: {}", THREAD_NAME, err));
     ret
 });
 
@@ -177,26 +176,28 @@ where
         }
     }
 
-    #[inline]
-    pub async fn ready(&self) {
-        join(self.read_ready(), self.write_ready()).await;
-    }
-
-    #[inline]
-    pub async fn read_ready(&self) {
-        poll_fn(|cx| {
-            let channel = &*self.entry.reader;
-            if !channel.is_ready() {
-                self.entry.read(cx.waker().clone());
-            }
-            if channel.is_ready() {
-                task::Poll::Ready(())
-            } else {
-                task::Poll::Pending
-            }
-        })
-        .await
-    }
+    // ## Unused
+    //
+    // #[inline]
+    // pub async fn ready(&self) {
+    //     join(self.read_ready(), self.write_ready()).await;
+    // }
+    //
+    // #[inline]
+    // pub async fn read_ready(&self) {
+    //     poll_fn(|cx| {
+    //         let channel = &*self.entry.reader;
+    //         if !channel.is_ready() {
+    //             self.entry.read(cx.waker().clone());
+    //         }
+    //         if channel.is_ready() {
+    //             task::Poll::Ready(())
+    //         } else {
+    //             task::Poll::Pending
+    //         }
+    //     })
+    //     .await
+    // }
 
     #[inline]
     pub async fn write_ready(&self) {

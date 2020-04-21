@@ -216,7 +216,8 @@ mod tests {
         let mut recv_data = String::new();
         client.read_to_string(&mut recv_data).await?;
         let client_addr: SocketAddr = recv_data.parse().unwrap();
-        Ok(assert_eq!(client.local_addr()?, client_addr))
+        assert_eq!(client.local_addr()?, client_addr);
+        Ok(())
     }
 
     #[test]
@@ -229,7 +230,8 @@ mod tests {
                 stream.write_all(addr.to_string().as_bytes()).await?;
                 let mut data = [0; DATA.len()];
                 stream.read_exact(&mut data).await?;
-                Ok::<_, io::Error>(assert_eq!(DATA, data.as_ref()))
+                assert_eq!(DATA, data.as_ref());
+                Ok::<_, io::Error>(())
             });
             connect(server_addr).await
         })
@@ -246,7 +248,8 @@ mod tests {
                 stream.write_all(addr.to_string().as_bytes()).await?;
                 let mut data = [0; DATA.len()];
                 stream.read_exact(&mut data).await?;
-                Ok::<_, io::Error>(assert_eq!(DATA, data.as_ref()))
+                assert_eq!(DATA, data.as_ref());
+                Ok::<_, io::Error>(())
             });
             connect(server_addr).await
         })
@@ -263,7 +266,8 @@ mod tests {
                 stream.write_all(addr.to_string().as_bytes()).await?;
                 let mut data = [0; DATA.len()];
                 stream.read_exact(&mut data).await?;
-                Ok::<_, io::Error>(assert_eq!(DATA, data.as_ref()))
+                assert_eq!(DATA, data.as_ref());
+                Ok::<_, io::Error>(())
             });
             connect(server_addr).await
         })

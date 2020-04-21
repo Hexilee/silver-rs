@@ -311,8 +311,7 @@ mod tests {
     use super::UnixDatagram;
     use crate::task::{block_on, spawn};
     use std::io;
-    use std::net::SocketAddr;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use tempfile::NamedTempFile;
 
     fn random_path() -> io::Result<PathBuf> {
@@ -354,7 +353,8 @@ mod tests {
             socket.connect(server_addr)?;
             socket.send(DATA).await?;
             let size = socket.recv(&mut data).await?;
-            Ok(assert_eq!(DATA, &data[..size]))
+            assert_eq!(DATA, &data[..size]);
+            Ok(())
         })
     }
 
@@ -368,7 +368,8 @@ mod tests {
             let socket: UnixDatagram = raw_socket.into();
             socket.send(DATA).await?;
             let size = socket.recv(&mut data).await?;
-            Ok(assert_eq!(DATA, &data[..size]))
+            assert_eq!(DATA, &data[..size]);
+            Ok(())
         })
     }
 }

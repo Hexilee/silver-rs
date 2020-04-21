@@ -391,7 +391,8 @@ mod tests {
             let mut recv_data = String::new();
             stream.read_to_string(&mut recv_data).await?;
             let local_addr: SocketAddr = recv_data.parse().unwrap();
-            Ok(assert_eq!(local_addr, stream.local_addr()?))
+            assert_eq!(local_addr, stream.local_addr()?);
+            Ok(())
         })
     }
 
@@ -406,7 +407,8 @@ mod tests {
             let mut recv_data = String::new();
             stream.read_to_string(&mut recv_data).await?;
             let local_addr: SocketAddr = recv_data.parse().unwrap();
-            Ok(assert_eq!(local_addr, stream.local_addr()?))
+            assert_eq!(local_addr, stream.local_addr()?);
+            Ok(())
         })
     }
 
@@ -426,7 +428,8 @@ mod tests {
             let data2 = peek_to_string(stream.clone()).await?;
             let local_addr: SocketAddr = data1.parse().unwrap();
             assert_eq!(data1, data2);
-            Ok(assert_eq!(local_addr, stream.local_addr()?))
+            assert_eq!(local_addr, stream.local_addr()?);
+            Ok(())
         })
     }
 
@@ -437,7 +440,8 @@ mod tests {
             let addr = listener.local_addr()?;
             let stream = TcpStream::connect(addr).await?;
             let peer_addr = stream.peer_addr()?;
-            Ok(assert_eq!(addr, peer_addr))
+            assert_eq!(addr, peer_addr);
+            Ok(())
         })
     }
     #[test]
@@ -446,7 +450,8 @@ mod tests {
             let listener = TcpListener::bind("127.0.0.1:0")?;
             let stream = TcpStream::connect(listener.local_addr()?).await?;
             stream.set_ttl(100)?;
-            Ok(assert_eq!(100, stream.ttl()?))
+            assert_eq!(100, stream.ttl()?);
+            Ok(())
         })
     }
     #[test]
@@ -456,7 +461,8 @@ mod tests {
             let stream = TcpStream::connect(listener.local_addr()?).await?;
             let no_delay = stream.nodelay()?;
             stream.set_nodelay(!no_delay)?;
-            Ok(assert_eq!(!no_delay, stream.nodelay()?))
+            assert_eq!(!no_delay, stream.nodelay()?);
+            Ok(())
         })
     }
 
@@ -466,7 +472,8 @@ mod tests {
             let listener = TcpListener::bind("127.0.0.1:0")?;
             let mut stream = TcpStream::connect(listener.local_addr()?).await?;
             stream.shutdown(Shutdown::Write)?;
-            Ok(assert!(stream.write_all(DATA).await.is_err()))
+            assert!(stream.write_all(DATA).await.is_err());
+            Ok(())
         })
     }
 }

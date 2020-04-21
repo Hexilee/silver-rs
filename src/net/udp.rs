@@ -104,7 +104,7 @@ impl UdpSocket {
     /// ```no_run
     /// # fn main() -> std::io::Result<()> { tio::task::block_on(async {
     /// #
-    ///	use tio::net::UdpSocket;
+    /// use tio::net::UdpSocket;
     ///
     /// let socket = UdpSocket::bind("127.0.0.1:0")?;
     /// let addr = socket.local_addr()?;
@@ -531,7 +531,8 @@ mod tests {
             socket.connect(server_addr)?;
             socket.send(DATA).await?;
             let size = socket.recv(&mut data).await?;
-            Ok(assert_eq!(DATA, &data[..size]))
+            assert_eq!(DATA, &data[..size]);
+            Ok(())
         })
     }
 
@@ -545,7 +546,8 @@ mod tests {
             let socket: UdpSocket = raw_socket.into();
             socket.send(DATA).await?;
             let size = socket.recv(&mut data).await?;
-            Ok(assert_eq!(DATA, &data[..size]))
+            assert_eq!(DATA, &data[..size]);
+            Ok(())
         })
     }
 
@@ -554,7 +556,8 @@ mod tests {
         let socket = one()?;
         let broadcast = socket.broadcast()?;
         socket.set_broadcast(!broadcast)?;
-        Ok(assert_eq!(!broadcast, socket.broadcast()?))
+        assert_eq!(!broadcast, socket.broadcast()?);
+        Ok(())
     }
 
     #[test]
@@ -562,7 +565,8 @@ mod tests {
         let socket = one()?;
         let multicast_loop_v4 = socket.multicast_loop_v4()?;
         socket.set_multicast_loop_v4(!multicast_loop_v4)?;
-        Ok(assert_eq!(!multicast_loop_v4, socket.multicast_loop_v4()?))
+        assert_eq!(!multicast_loop_v4, socket.multicast_loop_v4()?);
+        Ok(())
     }
 
     #[test]
@@ -570,20 +574,23 @@ mod tests {
         let socket = UdpSocket::bind("[::1]:0")?;
         let multicast_loop_v6 = socket.multicast_loop_v6()?;
         socket.set_multicast_loop_v6(!multicast_loop_v6)?;
-        Ok(assert_eq!(!multicast_loop_v6, socket.multicast_loop_v6()?))
+        assert_eq!(!multicast_loop_v6, socket.multicast_loop_v6()?);
+        Ok(())
     }
 
     #[test]
     fn multicast_ttl_v4() -> io::Result<()> {
         let socket = one()?;
         socket.set_multicast_ttl_v4(100)?;
-        Ok(assert_eq!(100, socket.multicast_ttl_v4()?))
+        assert_eq!(100, socket.multicast_ttl_v4()?);
+        Ok(())
     }
 
     #[test]
     fn ttl() -> io::Result<()> {
         let socket = one()?;
         socket.set_ttl(100)?;
-        Ok(assert_eq!(100, socket.ttl()?))
+        assert_eq!(100, socket.ttl()?);
+        Ok(())
     }
 }

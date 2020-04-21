@@ -269,7 +269,8 @@ mod tests {
 
             let mut data = Vec::new();
             stream.read_to_end(&mut data).await?;
-            Ok(assert_eq!(DATA, data.as_slice()))
+            assert_eq!(DATA, data.as_slice());
+            Ok(())
         })
     }
 
@@ -285,7 +286,8 @@ mod tests {
 
             let mut data = Vec::new();
             stream.read_to_end(&mut data).await?;
-            Ok(assert_eq!(DATA, data.as_slice()))
+            assert_eq!(DATA, data.as_slice());
+            Ok(())
         })
     }
 
@@ -306,7 +308,8 @@ mod tests {
             raw_stream.read_to_end(&mut data)?;
 
             drop(stream); // drop stream before raw_stream is dropped and fd is closed
-            Ok(assert_eq!(DATA, data.as_slice()))
+            assert_eq!(DATA, data.as_slice());
+            Ok(())
         })
     }
 
@@ -318,7 +321,8 @@ mod tests {
             let _listener = std::os::unix::net::UnixListener::bind(path)?;
             let stream = UnixStream::connect(path).await?;
             let peer_addr = stream.peer_addr()?;
-            Ok(assert_eq!(Some(path), peer_addr.as_pathname()))
+            assert_eq!(Some(path), peer_addr.as_pathname());
+            Ok(())
         })
     }
 
@@ -330,7 +334,8 @@ mod tests {
             let _listener = std::os::unix::net::UnixListener::bind(path.to_path_buf())?;
             let mut stream = UnixStream::connect(path).await?;
             stream.shutdown(Shutdown::Write)?;
-            Ok(assert!(stream.write_all(DATA).await.is_err()))
+            assert!(stream.write_all(DATA).await.is_err());
+            Ok(())
         })
     }
 
@@ -348,7 +353,8 @@ mod tests {
             s1.write_all(DATA).await?;
             let mut data = Vec::new();
             s1.read_to_end(&mut data).await?;
-            Ok(assert_eq!(DATA, data.as_slice()))
+            assert_eq!(DATA, data.as_slice());
+            Ok(())
         })
     }
 }
