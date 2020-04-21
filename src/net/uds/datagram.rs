@@ -305,3 +305,70 @@ impl AsRawFd for UnixDatagram {
         self.0.as_raw_fd()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::UnixDatagram;
+    use crate::task::{block_on, spawn};
+    use std::io;
+    use std::net::SocketAddr;
+    use std::path::{Path, PathBuf};
+    use tempfile::NamedTempFile;
+
+    fn random_path() -> io::Result<PathBuf> {
+        Ok(NamedTempFile::new()?.path().to_path_buf())
+    }
+
+    const DATA: &[u8] = b"
+    If you prick us, do we not bleed?
+    If you tickle us, do we not laugh?
+    If you poison us, do we not die?
+    And if you wrong us, shall we not revenge?
+    ";
+
+    fn one() -> io::Result<UnixDatagram> {
+        UnixDatagram::bind(random_path()?)
+    }
+
+    fn server() -> io::Result<PathBuf> {
+        let path = random_path()?;
+        let socket = UnixDatagram::bind(path.as_path())?;
+        spawn(async move {
+            let mut data = [0; 1024];
+            while let Ok((size, addr)) = socket.recv_from(&mut data).await {
+                assert_eq!(DATA, &data[..size]);
+                if let Some(path) = addr.as_pathname() {
+                    socket.send_to(&data[..size], path).await.unwrap();
+                }
+            }
+        });
+        Ok(path)
+    }
+
+    #[test]
+    fn basic() -> io::Result<()> {
+        block_on(async {
+            let mut data = [0; 1024];
+            let socket = one()?;
+            let server_addr = server()?;
+            socket.connect(server_addr)?;
+            socket.send(DATA).await?;
+            let size = socket.recv(&mut data).await?;
+            Ok(assert_eq!(DATA, &data[..size]))
+        })
+    }
+
+    #[test]
+    fn from_std() -> io::Result<()> {
+        block_on(async {
+            let mut data = [0; 1024];
+            let server_addr = server()?;
+            let raw_socket = std::os::unix::net::UnixDatagram::bind(random_path()?)?;
+            raw_socket.connect(server_addr)?;
+            let socket: UnixDatagram = raw_socket.into();
+            socket.send(DATA).await?;
+            let size = socket.recv(&mut data).await?;
+            Ok(assert_eq!(DATA, &data[..size]))
+        })
+    }
+}
