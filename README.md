@@ -4,7 +4,7 @@
   <p>
 
 [![Stable Test](https://github.com/Hexilee/tio/workflows/Stable%20Test/badge.svg)](https://github.com/Hexilee/tio/actions)
-[![codecov](https://codecov.io/gh/Hexilee/tio/branch/master/graph/badge.svg)](https://codecov.io/gh/Hexilee/tio) 
+[![Coverage Status](https://coveralls.io/repos/github/Hexilee/tio/badge.svg?branch=master)](https://coveralls.io/github/Hexilee/tio?branch=master) 
 [![Rust Docs](https://docs.rs/tio/badge.svg)](https://docs.rs/tio)
 [![Crate version](https://img.shields.io/crates/v/tio.svg)](https://crates.io/crates/tio)
 [![Download](https://img.shields.io/crates/d/tio.svg)](https://crates.io/crates/tio)
