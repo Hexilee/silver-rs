@@ -109,3 +109,30 @@ impl Stream for Interval {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::task;
+    use futures::prelude::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn interval() -> std::io::Result<()> {
+        task::block_on(async {
+            let gap = Duration::from_secs(1);
+            let times = 5;
+            let mut interval = task::interval(gap);
+            let mut counter = 0;
+            let start = Instant::now();
+            while let Some(_) = interval.next().await {
+                counter += 1;
+                if counter >= times {
+                    break;
+                }
+            }
+            assert_eq!(5, counter);
+            assert!(start.elapsed() >= times * gap);
+            Ok(())
+        })
+    }
+}
