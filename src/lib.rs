@@ -3,5 +3,6 @@
 #![cfg_attr(feature = "docs", warn(missing_docs))]
 #![cfg_attr(not(test), deny(unsafe_code))]
 
+pub mod fs;
 pub mod net;
 pub mod task;
