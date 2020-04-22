@@ -301,6 +301,11 @@ impl From<StdDatagram> for UnixDatagram {
 }
 
 impl AsRawFd for UnixDatagram {
+    /// Share raw fd of `UnixDatagram`.
+    ///
+    /// # Notes
+    ///
+    /// The caller is responsible for never closing this fd.
     fn as_raw_fd(&self) -> RawFd {
         self.0.as_raw_fd()
     }
@@ -311,6 +316,8 @@ mod tests {
     use super::UnixDatagram;
     use crate::task::{block_on, spawn};
     use std::io;
+    use std::net::Shutdown;
+    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
     use std::path::PathBuf;
     use tempfile::NamedTempFile;
 
@@ -345,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn basic() -> io::Result<()> {
+    fn echo() -> io::Result<()> {
         block_on(async {
             let mut data = [0; 1024];
             let socket = one()?;
@@ -364,10 +371,77 @@ mod tests {
             let mut data = [0; 1024];
             let server_addr = server()?;
             let raw_socket = std::os::unix::net::UnixDatagram::bind(random_path()?)?;
+            raw_socket.set_nonblocking(true)?;
             raw_socket.connect(server_addr)?;
             let socket: UnixDatagram = raw_socket.into();
             socket.send(DATA).await?;
             let size = socket.recv(&mut data).await?;
+            assert_eq!(DATA, &data[..size]);
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn as_raw_fd() -> io::Result<()> {
+        block_on(async {
+            let mut data = [0; 1024];
+            let server_addr = server()?;
+            let socket = UnixDatagram::bind(random_path()?)?;
+            let fd = socket.as_raw_fd();
+            let raw_socket =
+                unsafe { std::os::unix::net::UnixDatagram::from_raw_fd(fd) };
+            raw_socket.set_nonblocking(false)?;
+            raw_socket.connect(server_addr)?;
+            raw_socket.send(DATA)?;
+            let size = raw_socket.recv(&mut data)?;
+            assert_eq!(DATA, &data[..size]);
+            raw_socket.into_raw_fd(); // avoid fd closed when raw_socket is dropped
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn unbound() -> io::Result<()> {
+        block_on(async {
+            let socket = UnixDatagram::unbound()?;
+            let server_addr = server()?;
+            socket.connect(server_addr.as_path())?;
+            socket.send(DATA).await?;
+            assert!(socket.local_addr()?.is_unnamed());
+            assert_eq!(
+                Some(server_addr.as_path()),
+                socket.peer_addr()?.as_pathname()
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn shutdown() -> io::Result<()> {
+        block_on(async {
+            let socket = UnixDatagram::unbound()?;
+            let server_addr = server()?;
+            socket.connect(server_addr.as_path())?;
+            socket.shutdown(Shutdown::Both)?;
+            assert!(socket.send(DATA).await.is_err());
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn pair() -> io::Result<()> {
+        use crate::task::spawn;
+        block_on(async {
+            let (s1, s2) = UnixDatagram::pair()?;
+            spawn(async move {
+                let mut data = [0; 1024];
+                let size = s2.recv(&mut data).await.unwrap();
+                assert_eq!(DATA, &data[..size]);
+                s2.send(DATA).await.unwrap();
+            });
+            s1.send(DATA).await?;
+            let mut data = [0; 1024];
+            let size = s1.recv(&mut data).await?;
             assert_eq!(DATA, &data[..size]);
             Ok(())
         })

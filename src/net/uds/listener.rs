@@ -176,7 +176,7 @@ mod tests {
     use crate::task::{block_on, sleep, spawn};
     use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
     use std::io;
-    use std::os::unix::io::{AsRawFd, FromRawFd};
+    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
     use std::path::{Path, PathBuf};
     use std::time::Duration;
     use tempfile::NamedTempFile;
@@ -260,7 +260,7 @@ mod tests {
                     assert_eq!(DATA, data.as_ref());
                     stream.write_all(&data).unwrap();
                 }
-                drop(listener); // drop stream before raw_listener is dropped and fd is closed
+                raw_listener.into_raw_fd(); // avoid fd closed when raw_listener is dropped
             });
             connect(path_buf).await
         })

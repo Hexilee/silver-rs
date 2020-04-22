@@ -224,7 +224,7 @@ mod tests {
     use futures::{AsyncReadExt, AsyncWriteExt};
     use std::io;
     use std::net::Shutdown;
-    use std::os::unix::io::{AsRawFd, FromRawFd};
+    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
     use std::path::PathBuf;
     use std::time::Duration;
     use tempfile::NamedTempFile;
@@ -307,8 +307,8 @@ mod tests {
             let mut data = Vec::new();
             raw_stream.read_to_end(&mut data)?;
 
-            drop(stream); // drop stream before raw_stream is dropped and fd is closed
             assert_eq!(DATA, data.as_slice());
+            raw_stream.into_raw_fd(); // avoid fd closed when raw_stream is dropped
             Ok(())
         })
     }
